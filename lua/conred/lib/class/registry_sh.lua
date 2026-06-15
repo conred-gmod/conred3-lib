@@ -29,7 +29,7 @@ function REG:Init(name)
 end
 
 function REG:__tostring()
-    return "[registry "..tostring(self.Name).."]"
+    return "[registry "..self.TypeName..": "..self.Name.."]"
 end
 
 function REG:ValidateIndex(idx)
