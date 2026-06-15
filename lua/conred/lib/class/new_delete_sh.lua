@@ -29,29 +29,29 @@ function Class.MakeConstructable(meta)
 end
 
 
---- mixin CR.Class.Destructable
+--- mixin CR.Class.Deletable
 --
---- .__isvalid -- set to false after calling :Remove
+--- .__isvalid -- set to false after calling :Delete
 --
---- :OnRemove(remove_params: ...) optional -- the destructor/remove handler (called from remove function if it exists)
---- :Remove(remove_params: ...) -- the remove function (can't be called twice)
+--- :OnDelete(del_params: ...) optional -- the destructor/delete handler (called from delete function if it exists)
+--- :Delete(del_params: ...) -- the delete function (can't be called twice)
 
-local function class_remove(self, ...)
+local function class_delete(self, ...)
     if not IsValid(self) then
-        CR.Error("Can't remove ",self,": it is invalid (likely it is already removed or was not created (= attempt to remove a metatable))")
+        CR.Error("Can't delete ",self,": it is invalid (likely it is already deleted or was not created (= attempt to delete a metatable))")
     end
 
-    if self.OnRemove ~= nil then
-        self:OnRemove(...)
+    if self.OnDelete ~= nil then
+        self:OnDelete(...)
     end
 
     self.__isvalid = false
 end
 
---- Adds CR.Class.Removable mixin to `meta`
+--- Adds CR.Class.Deletable mixin to `meta`
 --- In practice should be used together with CR.Class.MakeConstructable.
 --
 --- meta: metatable(CR.Class.Base) 
-function Class.MakeRemovable(meta)
-    meta.Remove = class_remove
+function Class.MakeDeletable(meta)
+    meta.Delete = class_delete
 end
