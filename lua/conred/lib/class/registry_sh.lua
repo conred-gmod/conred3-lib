@@ -21,7 +21,7 @@ CR.Registry = REG
 Class.MakeConstructable(REG)
 CR.MaxIndex = nil
 
-function REG:Init(name)
+function REG:OnInit(name)
     assert(isstring(name))
 
     self.Name = name

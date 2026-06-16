@@ -2,21 +2,39 @@ local Class = CR.Class
 
 --- mixin CR.Class.Constructable
 --
---- .__isvalid -- false by-default, true after calling :New
+--- .__isvalid -- false by-default, true during and after call of :Init or :New 
 --
---- :Init(ctor_params: ...) optional -- the initializer (called from constructor if it exists)
---- :New(ctor_params: ...) static -> object(self) -- the constructor function 
+--- :Construct() static -> object(self) -- construct the object without initializing it
+--- :New(ctor_params: ...) static -> object(self) -- construct the object and initialize it
+--
+--- :Init(ctor_params) -- initialize the object (used when you need to delay init from construction, use :New otherwise)
+--- :OnInit(ctor_params: ...) optional
 
-local function class_new(self, ...)
+local function class_construct(self)
     local inst = {
-        __isvalid = true
+        __isvalid = false
     }
-
     setmetatable(inst, self)
 
-    if inst.Init ~= nil then
-        inst:Init(...)
+    return inst
+end
+
+local function class_init(self, ...)
+    if IsValid(self) then
+        CR.Error("Can't init ",self,": it is already valid (likely already initialized)")
     end
+    
+    self.__isvalid = true
+
+    if inst.OnInit ~= nil then
+        inst:OnInit(...)
+    end
+
+end
+
+local function class_new(self, ...)
+    local inst = class_construct(self)
+    class_init(self, ...)
 
     return inst
 end
@@ -25,6 +43,9 @@ end
 --- meta: metatable(CR.Class.Base)
 function Class.MakeConstructable(meta)
     meta.__isvalid = false
+
+    meta.Construct = class_construct
+    meta.Init = class_init
     meta.New = class_new
 end
 
