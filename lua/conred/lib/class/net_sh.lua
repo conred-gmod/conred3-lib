@@ -126,8 +126,8 @@ function NetSlot:HandleReceive_Domain(domain_id, len, ply)
         assert(CLIENT, "Should never happen (attempt to received data into empty netslot on server)")
 
         -- Store the raw data, will parse it when object will get inited
-        local buf = NikNaks.BitBuffer.FromNet(len)
-        self.Domains[domain_id] = { Buffer = buf }
+        local buf = Class.NetRecvBuffer(len)
+        self.Domains[domain_id] = { Buffer = buf, BufferLen = len }
 
         return
     end
@@ -135,8 +135,7 @@ function NetSlot:HandleReceive_Domain(domain_id, len, ply)
     local domain = self.Domains[domain_id]
     if domain == nil then return end -- No domain with given ID found, probably bogus net data.
 
-    local buf = NikNaks.BitBuffer.FromNet(len)
-    domain:HandleRecv(buf, ply)
+    domain:HandleRecv(Class.NetRecvCurMessage, len, ply)
 end
 
 

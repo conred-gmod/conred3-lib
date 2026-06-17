@@ -112,6 +112,7 @@ CR.IncludeSmart("conred/lib/", {
     "class/object_sh.lua",
     "class/new_delete_sh.lua",
     "class/registry_sh.lua",
+    "class/net_recv_buffer_sh.lua",
     "class/net_sh.lua"
 }, true)
 
