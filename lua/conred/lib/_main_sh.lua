@@ -106,6 +106,7 @@ function CR.IncludeSmart(prefix, list, notify)
 end
 
 CR.IncludeSmart("conred/lib/", {
+    "thirdparty_sh.lua",
     "util_sh.lua",
     "persist_sh.lua",
 
