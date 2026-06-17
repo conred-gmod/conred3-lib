@@ -109,6 +109,8 @@ CR.IncludeSmart("conred/lib/", {
     "util_sh.lua",
     "persist_sh.lua",
 
-    "class/*",
+    "class/object_sh.lua",
+    "class/new_delete_sh.lua",
+    "class/registry_sh.lua"
 }, true)
 
