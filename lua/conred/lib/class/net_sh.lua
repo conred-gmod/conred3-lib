@@ -1,3 +1,4 @@
+
 local Class = CR.Class
 
 local msgname = "CR.Class.Networking"
@@ -113,8 +114,41 @@ function NetSlot.HandleReceive_GetOrAlloc(obj_id, epoch)
     return slot
 end
 
-function NetSlot.HandleReceive_Domain(domain_id)
+--- Read net data for non-Init/Delete netdomain, 
+-- delay processing until object init is recieved (if not recieved),
+-- and then parse the data using domain's function
+--
+--- domain_id: uint
+--- len: uint -- size of domain-specific data in bits
+--- ply: Player|nil -- message sender (nil iff server->client)
+function NetSlot:HandleReceive_Domain(domain_id, len, ply)
+    if self.Obj == nil then -- We don't know domains' types and parameters
+        assert(CLIENT, "Should never happen (attempt to received data into empty netslot on server)")
 
+        -- Store the raw data, will parse it when object will get inited
+        local buf = NikNaks.BitBuffer.FromNet(len)
+        self.Domains[domain_id] = { Buffer = buf }
+
+        return
+    end
+
+    local domain = self.Domains[domain_id]
+    if domain == nil then return end -- No domain with given ID found, probably bogus net data.
+
+    local buf = NikNaks.BitBuffer.FromNet(len)
+    domain:HandleRecv(buf, ply)
+end
+
+
+if CLIENT then
+    --- Read net data for Init/Delete netdomain as init message,
+    -- construct the object, init it using special Init netdomain,
+    -- initialize and handle pending messages from other domains (if any).
+    --
+    --- len: uint -- remaining data size in bits
+    function NetSlot:HandleReceive_Init(len)
+
+    end
 end
 
 local function net_HandleReceive(len, ply)
@@ -125,15 +159,22 @@ local function net_HandleReceive(len, ply)
     local slot = NetSlot.HandleReceive_GetOrAlloc(obj_id, epoch)
     if slot == nil then return end -- Client sent wrong data or tried to fool the server.
 
+    local data_len = len - CLASS.NETID_BITS - CLASS.NET_EPOCH_BITS - CLASS.NET_DOMAIN_BITS
+
     if domain_id == NET_DOMAIN_INITDELETE then
-        if CLIENT then
-            -- Only server can tell the receiver (client) to init or delete the slot.
-            slot:HandleReceive_InitRemove()
+        -- Only server can tell the receiver (client) to init or delete the slot.
+        if SERVER then return end
+
+        -- If there are parameters, it is init message
+        if data_len ~= 0 then
+            slot:HandleReceive_Init(data_len)
+        else
+            slot:HandleReceive_Delete()
         end
         return
     end
 
-    slot:HandleReceive_Domain(domain_id)
+    slot:HandleReceive_Domain(domain_id, data_len, ply)
 end
 net.Receive("CR.Class.Networking", net_HandleReceive)
 
