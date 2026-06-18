@@ -38,12 +38,13 @@ function CR.ToString(val, pretty_print)
 end
 
 --- Generates stub namespace tables, if they don't exist.
---- Use `SERVER and {}` for server-only namespaces, `CLIENT and {}` for client-only ones. 
+--- Use `SERVER and {}` for server-only namespaces, `CLIENT and {}` for client-only ones.
 --- Example:
---- CR.PrepareNamespace(CR, {Object = {Net = {}}, DatabaseSV = SERVER and {}}) 
+--- CR.PrepareNamespace(CR, {Object = {Net = {}}, DatabaseSV = SERVER and {}})
 ---
 --- nspace: table
 --- template: table
+--- result: table = nspace
 function CR.PrepareNamespace(nspace, template)
     assert(istable(nspace))
     assert(istable(template))
@@ -54,4 +55,6 @@ function CR.PrepareNamespace(nspace, template)
             CR.PrepareNamespace(nspace[k], v)
         end
     end
+
+    return nspace
 end
