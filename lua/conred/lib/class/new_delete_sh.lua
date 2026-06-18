@@ -8,7 +8,7 @@ local Class = CR.Class
 --- :Construct() static -> object(self) -- construct the object without initializing it
 --- :New(ctor_params: ...) static -> object(self) -- construct the object and initialize it
 --
---- :Init(ctor_params) -- initialize the object (used when you need to delay init from construction, use :New otherwise)
+--- :Init(ctor_params: ...) -- initialize the object (used when you need to delay init from construction, use :New otherwise)
 --- :OnInit(ctor_params: ...) optional
 --
 --- hook CR.Class.PreInit(obj: object(CR.Class.Constructable), ctor_params: ...)
