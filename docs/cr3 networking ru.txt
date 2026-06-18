@@ -35,21 +35,21 @@ Beware.
 - Откладывание второй фазы инициализации до доступности необходимых объектов-ссылок
 	-> Фактически, я реализую каллбек с семафором (счёткиком невыполненных предусловий).
 	function Obj:NetSetup()
-		local asyncinit = CR.Class.SemaphoredCallback()
+		local asyncinit = CR.SemaphoredCallback()
 		self._asyncinit = asyncinit
 		
 		-- [setup domains]
 		
 		if CLIENT then
-			self._dependencySlot1:Wait(asyncinit)
-			self._dependencySlot2:Wait(asyncinit)
+			asyncinit:WaitFor(self._dependencySlot1)
+			asyncinit:WaitFor(self._dependencySlot2)
 		end
 	end
 	
-	function Obj:Init(...)
-		self.Base.Init(self, ...)
+	function Obj:OnInit(...)
+		self.Base.OnInit(self, ...)
 		
-		self._asyncinit:CallOnce_Method(self.AsyncInit, self) -- Вызывает каллбек сразу, если семафор в нуле
+		self._asyncinit:DoOnce(function() self:AsyncInit() end) -- Вызывает каллбек сразу, если семафор в нуле
 	end
 	
 	function Obj:AsyncInit()
