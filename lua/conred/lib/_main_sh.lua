@@ -24,7 +24,7 @@ end
 local realm_colors = {
     ["sv"] = Color(0, 0, 201),
     ["cl"] = Color(223, 223, 35),
-    ["sh"] = Color(0, 196, 0)
+    ["sh"] = Color(0, 196, 0),
     ["skip"] = Color(85,74,74)
 }
 
@@ -45,14 +45,14 @@ function CR.IncludeFile(filename, realm, notify)
         (realm == "sh")
     then
         local result = include(filename)
-        
+
         if notify then MsgC(realm_colors[realm], filename) end
-        
+
         return result
     end
 end
 
---- Include all lua files in `path` (recursively, if `recurse` is set) 
+--- Include all lua files in `path` (recursively, if `recurse` is set)
 ---
 --- path: string (directory path, including "/")
 --- notify: bool|nil (if true, do logging)
@@ -65,7 +65,7 @@ function CR.IncludeDir(path, notify, recurse)
 
         if CR.IsLuaFile(file) then
             CR.IncludeFile(file, notify)
-        else if notify then
+        elseif notify then
             MsgC(realm_colors.skip, "[skipped] ",path)
         end
     end
@@ -84,11 +84,11 @@ function CR.IncludeSmartSingle(entry, notify)
 
     if realm ~= nil then
         CR.IncludeFile(entry, realm, notify)
-    else if string.EndsWith(entry, "/*") then
+    elseif string.EndsWith(entry, "/*") then
         CR.IncludeDir(string.sub(entry, 1, -3), notify, false)
-    end else if strings.EndsWith(entry, "/**") then
+    elseif strings.EndsWith(entry, "/**") then
         CR.IncludeDir(string.sub(entry, 1, -4), notify, true)
-    end else 
+    else
         ErrorNoHaltWithStack("Invalid smart include parameter ",entry)
     end
 end
