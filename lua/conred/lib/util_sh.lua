@@ -44,6 +44,7 @@ end
 ---
 --- nspace: table
 --- template: table
+--- result: table = nspace
 function CR.PrepareNamespace(nspace, template)
     assert(istable(nspace))
     assert(istable(template))
