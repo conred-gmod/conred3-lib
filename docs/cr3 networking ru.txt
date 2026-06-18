@@ -1,0 +1,112 @@
+Документация частично неактуальная.
+Частично это вообще не документация, а рабочий документ/поток мыслей.
+Beware.
+
+## Сетёвка: какие нужно решать проблемы
+
+- Порядок инициализации на клиенте
+	-> Клиент должен знать, от каких объектов зависит данный объект, и откладывать инициализацию до инициализации рестрикторов.
+		-> Общая система рестрикторов (не привязанная к сетёвке)
+		-> Создание объекта в две фазы - Obj = Meta:NewUninitilized(); Obj:ActualInit()
+
+- Правильная обработка случаев, когда объект был удалён, был создан новый объект с тем же айдишником, и затем пришли данные для старого объекта
+	-> Целевой объект - айдишник + эпоха (увеличивается при каждом пересоздании, привязана к айдишнику)
+	(Переполнение эпохи допустимо).	
+
+-? Детали системы сетевых доменов
+	-> Каждый сетевой объект содержит внутри себя "сетевые домены" (т.е. айдишник имеет вид ObjId:Epoch:DomainId), каждый домен отвечает за свои данные (валидацию данных с клиента, дельта-компрессию, повтор отправки для новых игроков (если переменная, а не событие), recipientfilter, т.п.)
+	
+	- Как будет происходить инициализация?
+		-> Сервер отправляет данные для домена 0 (конструктор/деструктор). Клиент принимает данные для домена 0 с неизвестным типом объекта, 
+		в данных читает тип, создаёт неиниц. тип и заполняет его данными, дальше вызывает инициализатор.
+		
+	- Как будет происходить удаление?
+		-> Вызванное сервером: сервер отправляет данные для домена 0 (конструктор/деструктор) без доп. данных, клиент принимает данные, вызывает деструктор, помечает слот айдишника как удалённый.
+		-> Вызванное клиентом (напр. каскадное удаление заранее): клиент вызывает деструктор, помечает слот айдишника как удалённый.
+	
+
+- Клиент получил данные для объекта неизвестного типа, что делать?
+	-> Создать заглушку объекта, для домена по айдишнику сохранить данные
+	
+- Сетёвка для статических классов
+
+- Фильтрация отправки
+
+- Откладывание второй фазы инициализации до доступности необходимых объектов-ссылок
+	-> Фактически, я реализую каллбек с семафором (счёткиком невыполненных предусловий).
+	function Obj:NetSetup()
+		local asyncinit = CR.Class.SemaphoredCallback()
+		self._asyncinit = asyncinit
+		
+		-- [setup domains]
+		
+		if CLIENT then
+			self._dependencySlot1:Wait(asyncinit)
+			self._dependencySlot2:Wait(asyncinit)
+		end
+	end
+	
+	function Obj:Init(...)
+		self.Base.Init(self, ...)
+		
+		self._asyncinit:CallOnce_Method(self.AsyncInit, self) -- Вызывает каллбек сразу, если семафор в нуле
+	end
+	
+	function Obj:AsyncInit()
+		local dep1 = self._dependencySlot1.Obj
+		local dep2 = self._dependencySlot2.Obj
+		
+		assert(IsValid(dep1) and IsValid(dep2))
+	end
+	
+	
+## Сетёвка: устройство
+
+Использование:
+
+local Obj = CR.Class.Register("Test.Obj")
+CR.Class.MakeConstructableRemovable(Obj)
+
+if SERVER then
+	function Obj:Net_GetRecipients(recip)
+		
+	end
+end
+
+function Obj:Net_Setup()
+	-- Transmitted from server to all clients allowed by the recieve filter.
+	-- Transmitted on update (:MarkUpdated()) or to newly-connected allowed players.
+	self._varDomain = self:Net_AddDomain(CR.Class.NetVar({
+		Send = function() -- SERVER
+			net.WriteVector(self.Pos)
+			net.WriteUInt(self.Var1, 32)
+			net.WriteString(self.Var2)
+			net.WriteUInt(#self.Array, 16)
+			for _, v in ipairs(self.Array) do
+				net.WriteUInt(v.Num, 4)
+				net.WriteVector(v.Pos)
+			end
+		end,
+		Recv = function(buf, len) -- CLIENT
+			self.Pos = buf:ReadVector()
+			self.Var1 = buf:ReadUInt(32)
+			self.Var2 = buf:ReadString()
+			
+			local arr = {}
+			for i = 1, buf:ReadUInt(16) do
+				arr[i] = {
+					Num = buf:ReadUInt(4),
+					Pos = buf:ReadVector()
+				}
+			end
+			
+			self.Array = arr
+		end,
+		Filter = 
+	}))
+end
+
+function Obj:Change()
+	self.Var1 = self.Var1 + 1
+	self._varDomain:MarkUpdated()
+end
