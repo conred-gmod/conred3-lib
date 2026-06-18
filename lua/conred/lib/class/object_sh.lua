@@ -1,6 +1,6 @@
 local Class = CR.PrepareNamespace(CR, { Class = {} }).Class
 
-local classes = CR.GetPersistedTable("CR.Classes", {})
+local classes = CR.GetPersistedTable("CR.Classes")
 
 local function class_tostring(self)
     local invalid_marker = ""

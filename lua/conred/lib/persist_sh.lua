@@ -14,8 +14,14 @@ __cr_persistdata = __cr_persistdata or {}
 UnlockPersistData()
 hook.Add("OnReloaded", "CR.PersistTableUnlock", UnlockPersistData)
 
-
+--- Returns a table that is persisted between hot reloads.
+--
+--- name: string -- table name (for hot reload persistance needs)
+--- default: table|nil -- a default value (new empty table if nil)
+--- result: table
 function CR.GetPersistedTable(name, default)
+    if default == nil then default = {} end
+
     if __cr_persistdata[name] ~= nil then
         return __cr_persistdata[name]
     else
