@@ -25,6 +25,9 @@ Class.MakeConstructable(NetSlot)
 --- NetSlot.Obj: CR.Class.Networkable|nil
 --- NetSlot.Epoch: uint|nil
 --- NetSlot.Domains: table(domainid: uint, domain: CR.Class.NetDomain)
+--- NetSlot.DomainLast: uint
+
+--- NetSlot.InitializedCallback: nil | fn()
 
 -- Stores `NetSlot`s
 NetSlot.Registry = CR.Registry:New("CR.Class.NetSlot.Registry")
@@ -34,6 +37,7 @@ function NetSlot:OnInit(obj_id, epoch)
     self.ObjId = obj_id
     self.Epoch = epoch
     self.Domains = {}
+    self.DomainLast = 0
 end
 
 function NetSlot:__tostring()
@@ -54,7 +58,7 @@ end
 if CLIENT then
     --- Delete slot's object if it exists and deletable
     function NetSlot:Flush()
-        if IsValid(obj) then 
+        if CLIENT and IsValid(obj) then 
             if obj.Delete ~= nil then
                 obj:Delete()
             else
@@ -66,12 +70,14 @@ if CLIENT then
         self.Obj = nil
         self.Epoch = nil
         self.Domains = {}
+        self.DomainLast = 0
     end
-end
-
-if SERVER then
-    function NetSlot:IncreaseEpoch()
+else
+    function NetSlot:Flush()
+        self.Obj = nil
         self.Epoch = bit.band(Class.NET_EPOCH_MASK, self.Epoch + 1)
+        self.Domains = {}
+        self.DomainLast = 0
     end
 end
 
@@ -146,7 +152,27 @@ if CLIENT then
     --
     --- len: uint -- remaining data size in bits
     function NetSlot:HandleReceive_Init(len)
+        local typename = net.ReadString()
 
+        local meta = Class.Get(typename)
+        if meta == nil then
+            CR.Error(self,": received init message for non-existant type ",typename)
+        end
+
+        local ctorparam_len = len - (#typename + 1) * 8
+
+        local obj = meta:Construct()
+        obj:NetInitFromSlot(self, len)
+
+        self.Obj = obj
+        self:SetupDomains()
+
+        self:TryNotifyInitialized()
+    end
+
+    --- Handle delete message
+    function NetSlot:HandleReceive_Delete()
+        self:Flush()
     end
 end
 
@@ -179,17 +205,84 @@ net.Receive("CR.Class.Networking", net_HandleReceive)
 
 
 
+function NetSlot:TryNotifyInitialized()
+    if self.Obj == nil then return end
+
+    if self.InitializedCallback then
+        self.InitializedCallback()
+        
+        self.InitializedCallback = nil
+    end
+end
+
+function NetSlot:OnInitialized(callback)
+    if self.Obj ~= nil then
+        callback()
+        return
+    end
+
+    self.InitializedCallback = callback
+end
+
+
+function NetSlot:DefineDomain(domain)
+    local did = 
+end
+
 -------------------------------------
 
 --- mixin CR.Class.Networkable
 -- An object that supports networking between client and server.
 --
---
+--- :NetRecvInit(len: uint) optional -- called in net.Receive context, `self` is not valid yet. Read networked ctor params here.
+--- :NetWriteInit() optional -- called in net.Start context. Write networked ctor params here.
+
+local function netable_InitFromSlot(self, slot, init_len)
+    assert(self.NetSlot == nil)
+    self.NetSlot = slot
+
+    if self.NetRecvInit then
+        self:NetRecvInit(init_len)
+    end
+
+    self:Init()
+end
+
+local function netable_AddDomain(self, domain)
+    self.NetSlot:DefineDomain(domain)
+
+    return domain
+end
+
+local function netable_OnInit(self)
+    -- TODO delay support?
+
+    if SERVER then
+        self.NetSlot:HandleInit()
+    end
+end
+
+local function netable_OnDelete(self)
+    if SERVER then
+        self.NetSlot:HandleDelete()
+    end
+end
+
+hook.Add("CR.Class.PostInit", "CR.Class.Networking", function(obj)
+    if not obj.IsNetworkable then return end
+
+    if SERVER then
+        self.NetSlot:HandleInit()
+    end
+end)
 
 --- Adds CR.Class.Networkable to `meta`.
 -- Can be used for static objects w/o constructors.
 --
 --- meta: metatable(CR.Class.Base)
 function Net.MakeNetworkable(meta)
+    self.IsNetworkable = true
 
+    self.NetInitFromSlot = netable_InitFromSlot
+    self.NetAddDomain = netable_AddDomain
 end
