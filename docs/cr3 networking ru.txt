@@ -80,7 +80,49 @@ Beware.
 	-> Объект готов к сетёвке не по завершению :OnInit, а по вызову :Net_Initialized.
 	Объект сбрасывается при повторном вызове :Net_Initialized (отловит hot reload)
 
-- Фильтрация отправки
+- Фильтрация отправки (SV->CL)
+	-> Фильтр является классом с методами
+	FILTER:FillRecipientList(recip: CRecipientList)
+	FILTER:GetPlayers() -> array(Player)
+	FILTER:AddOnChanged(cb: fn()) и FILTER:RemoveOnChanged(cb: fn()) -- каллбек вызывается при изменении списка игроков.
+	
+	Отправлять данные тем, кто не получил конструктор, смысла нет.
+	Значит, фильтр должен исключать всех, кто не знает об объекте.
+
+	- Композиция фильтров
+		AndFilter({Filter1, Filter2, Filter3})
+		OrFilter({Filter1, Filter2, Filter3})
+
+	- Когда перепроверять фильтр отправки?
+		-> Вообще, только для доменов-переменных. Для доменов-событий это не нужно.
+		
+		Если фильтр - глобальный, то при подключении новых игроков
+		Если фильтр - по PVS/PAS, то при входе/выходе игрока в зону видимости/слышимости.
+		Если фильтр - по разрешению, то при смене разрешения.
+
+	- Учёт варианта, когда домен-переменная изменилась, пока игрок был отфильтрован, а затем игрок прошёл фильтр.
+		-> Нужно отслеживать отправочную эпоху (увеличивать на 1 при каждой смене значения переменной) 
+		и то, какую отправочную эпоху наблюдал игрок. Так можно узнать, что у игрока старые данные.
+
+	- Должен ли клиент иметь возможность знать, что он отфильтрован доменом? Если да, то как?
+		-> Полезно для объектов, выполняющих работу по данным с сервера.
+		Но нужно это, если данные отправляются не потоком, а редко, но при этом работа есть часто.
+
+		Другие аддоны этот вопрос игнорируют.
+
+- Фильтрация получения (CL->SV)
+	-> Фильтр является функцией fn(ply: Player) -> allowed: bool.
+	Нужно исключать тех, кто не получал конструктор.
+	Сверх этого, ничего особо не нужно.
+	
+	Для каскадирования можно сделать фильтр, вызывающий фильтр владельца.
+	ООП не нужно.
+	function Obj:NetSetup()
+
+		local filter = function(ply)
+			return self.OwnerObj.GlobalFilter(ply) and ply:IsAdmin()
+		end
+	end
 
 - Откладывание второй фазы инициализации до доступности необходимых объектов-ссылок
 	-> Фактически, я реализую каллбек с семафором (счёткиком невыполненных предусловий).
@@ -112,20 +154,18 @@ Beware.
 	
 ## Сетёвка: использование
 
+local AdminFilter = CR.Net.PermissionFilter("admin") -- Example custom filter
+
 local Obj = CR.Class.Register("Test.Obj")
 CR.Class.MakeConstructableRemovable(Obj)
 
-if SERVER then
-	function Obj:Net_GetRecipients(recip)
-		
-	end
-end
-
-function Obj:Net_Setup()
+function Obj:Net_Setup() -- Called by the net lib
+	self.Net_SendFilter = CR.Net.PVSFilter()
+	
 	-- Transmitted from server to all clients allowed by the recieve filter.
 	-- Transmitted on update (:MarkUpdated()) or to newly-connected allowed players.
-	self._varDomain = self:Net_AddDomain(CR.Class.NetVar({
-		Send = function() -- SERVER
+	self._varDomain = self:Net_AddDomain(CR.Net.VarDomain({
+		Send = function(domain) -- SERVER
 			net.WriteVector(self.Pos)
 			net.WriteUInt(self.Var1, 32)
 			net.WriteString(self.Var2)
@@ -135,7 +175,7 @@ function Obj:Net_Setup()
 				net.WriteVector(v.Pos)
 			end
 		end,
-		Recv = function(buf, len) -- CLIENT
+		Recv = function(domain, buf, len) -- CLIENT
 			self.Pos = buf:ReadVector()
 			self.Var1 = buf:ReadUInt(32)
 			self.Var2 = buf:ReadString()
@@ -149,12 +189,90 @@ function Obj:Net_Setup()
 			end
 			
 			self.Array = arr
+
+			self:OnVarsUpdated()
+		end
+	})) -- Considered updated on self._varDomain:MarkUpdated() or on object init.
+
+	self._eventDomain = self:Net_AddDomain(CR.Net.EventDomain({
+		-- You don't have to use extra parameters (they are varargs BTW), you can also read fields from the object.
+		Send = function(domain, msg) -- SERVER
+			net.WriteString(msg)
 		end,
-		Filter = 
+
+		Recv = function(domain, buf, len) -- CLIENT
+			self:OnTrolled(buf:ReadString())
+		end,
+
+		SendFilter = AdminFilter, -- ANDed with self.Net_SendFilter
 	}))
 end
 
-function Obj:Change()
-	self.Var1 = self.Var1 + 1
-	self._varDomain:MarkUpdated()
+function Obj:Net_SendInit() -- Send constructor parameters, basically
+	net.WriteString(self.Name)
 end
+
+function Obj:Net_RecvInit(buf) -- Receive constructor parameters. Called before :Init on client.
+	self.Name = buf:ReadString()
+end
+
+function Obj:Init(name)
+	if SERVER then
+		self.Name = name
+	else
+		-- On client, self.Name was already set by :Net_RecvInit
+	end
+	
+	print("My name is", self.Name)
+end -- :Net_SendInit may be called as soon as after :Init finished
+
+if SERVER then
+	function Obj:SetPos(pos)
+		self.Pos = pos
+		self:PosUpdated()
+	end
+
+	function Obj:PosUpdated()
+		self.Net_SendFilter:SetPos(self.Pos)
+		self._varDomain:MarkUpdated()
+	end
+
+	function Obj:Change()
+		self.Var1 = self.Var1 + 1
+		self._varDomain:MarkUpdated()
+	end
+	
+	function Obj:DoSomeTrolling(who)
+		self._eventDomain:Send("Trolled by "..who:Nick())
+	end
+else
+	function Obj:OnTrolled(msg)
+		-- Only sent to admins who see Obj
+		chat.AddText(self.Name..":"..msg)
+	end
+
+	function Obj:OnVarsUpdated()
+		print("New Var2:", self.Var2)
+	end
+end
+
+concommand.Add("create_object", function(ply, _, args) -- SERVER
+	if IsValid(ply) and IsValid(ply.TheObject) then
+		print("Already created!")
+		return
+	end 
+	
+	local name = args[1]
+
+	local obj = Obj:New(name) -- Creates the object. It will be networked as soon as possible.
+	if IsValid(ply) then
+		obj:SetPos(ply:EyePos())
+	end
+end)
+
+concommand.Add("remove_object", function(ply) -- SERVER
+	if IsValid(ply) and IsValid(ply.TheObject) then
+		ply.TheObject:Delete() -- Deletes the object. Removal will be networked to clients who know about the object.
+		ply.TheObject = nil
+	end
+end)
