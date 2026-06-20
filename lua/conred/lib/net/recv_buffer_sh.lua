@@ -67,7 +67,7 @@ end
 
 
 function RB:ReadColor(hasalpha)
-    local r, g, b, = self._buf:ReadByte(), self._buf:ReadByte(), self._buf:ReadByte()
+    local r, g, b = self._buf:ReadByte(), self._buf:ReadByte(), self._buf:ReadByte()
 
     local a = 255
     if hasalpha then a = self._buf:ReadByte() end

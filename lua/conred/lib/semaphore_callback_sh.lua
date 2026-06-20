@@ -2,14 +2,14 @@
 --- interface CR.Waitable
 -- Something you can wait for.
 --
---- :AddReadyCallback(callback: fn()) -- Add callback to be called when the awaited event happens. 
+--- :AddReadyCallback(callback: fn()) -- Add callback to be called when the awaited event happens.
 --- :RemoveReadyCallback(callback: fn()) -- Remove the callback
 
 
 --- class CR.SemaphoredCallback
 --- impl CR.Class.Constructable, CR.Class.Deletable
 -- A callback with semaphore (wait counter).
--- 
+--
 --
 --- :New() static -> CR.SemaphoredCallback
 --- :Delete() -- Cleans up Waitable references (should help free some memory)
@@ -25,7 +25,7 @@
 --- :CancelOnce(callback: fn()) -- Remove callback added by :DoOnce
 --- :CancelRepeating(callback: fn()) -- Remove callback added by :DoRepeating
 
-local SC = CR.Class.Register("CR.SemaphoredCallback")
+local SC = CR.Class.Define("CR.SemaphoredCallback")
 CR.SemaphoredCallback = SC
 
 CR.Class.MakeConstructable(SC)
@@ -69,7 +69,7 @@ end
 
 function SC:WaitFor(waitable)
     assert(waitable.AddWaitDoneCallback)
-    
+
     self:Wait()
     waitable:AddReadyCallback(self.Unwait_Static)
     table.insert(self._waitables, waitable)

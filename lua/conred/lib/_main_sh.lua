@@ -46,7 +46,7 @@ function CR.IncludeFile(filename, realm, notify)
     then
         local result = include(filename)
 
-        if notify then MsgC(realm_colors[realm], filename) end
+        if notify then MsgC(realm_colors[realm], filename, "\n") end
 
         return result
     end
@@ -66,7 +66,7 @@ function CR.IncludeDir(path, notify, recurse)
         if CR.IsLuaFile(file) then
             CR.IncludeFile(file, notify)
         elseif notify then
-            MsgC(realm_colors.skip, "[skipped] ",path)
+            MsgC(realm_colors.skip, "[skipped] ",path, "\n")
         end
     end
 
