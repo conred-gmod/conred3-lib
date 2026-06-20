@@ -1,36 +1,38 @@
 
 local Class = CR.Class
 
-local msgname = "CR.Class.Networking"
+local MSGNAME = "CR.Net.DomainMessage"
 if SERVER then
-    util.AddNetworkString(msgname)
+    util.AddNetworkString(MSGNAME)
 end
 
-Class.NETID_BITS = 16
-Class.NETID_MAX = bit.lshift(1, Class.NETID_BITS) - 1
+local NETID_BITS = 16
+local NETID_MAX = bit.lshift(1, Class.NETID_BITS) - 1
 
-Class.NET_EPOCH_BITS = 12
-Class.NET_EPOCH_MASK = 4095
+local NET_EPOCH_BITS = 12
+local NET_EPOCH_MASK = 4095
 
-Class.NET_DOMAIN_BITS = 8
-Class.NET_DOMAIN_INITDELETE = 0 --- Id of InitDelete netdomain
-Class.NET_DOMAIN_MAX = 255
+local NET_DOMAIN_BITS = 8
+local NET_DOMAIN_INITDELETE = 0 --- Id of InitDelete netdomain
+local NET_DOMAIN_MAX = 255
 
 ----------------------------------------------
 
-local NetSlot = Class.Define("CR.Class.NetSlot")
+local NetSlot = Class.Define("CR.Net.Slot")
 Class.MakeConstructable(NetSlot)
 
+CR.Net.Slot = NetSlot
+
 --- NetSlot.ObjId: uint
---- NetSlot.Obj: CR.Class.Networkable|nil
+--- NetSlot.Obj: CR.Net.Networkable|nil
 --- NetSlot.Epoch: uint|nil
---- NetSlot.Domains: table(domainid: uint, domain: CR.Class.NetDomain)
+--- NetSlot.Domains: table(domainid: uint, domain: CR.Net.Domain)
 --- NetSlot.DomainLast: uint
 
 --- NetSlot.InitializedCallback: nil | fn()
 
 -- Stores `NetSlot`s
-NetSlot.Registry = CR.Registry:New("CR.Class.NetSlot.Registry")
+NetSlot.Registry = CR.Registry:New("CR.Net.Slot.Registry")
 
 --- NetSlot:New(obj_id: uint, epoch: uint|nil) -> object(self)
 function NetSlot:OnInit(obj_id, epoch)
@@ -75,7 +77,7 @@ if CLIENT then
 else
     function NetSlot:Flush()
         self.Obj = nil
-        self.Epoch = bit.band(Class.NET_EPOCH_MASK, self.Epoch + 1)
+        self.Epoch = bit.band(NET_EPOCH_MASK, self.Epoch + 1)
         self.Domains = {}
         self.DomainLast = 0
     end
@@ -177,14 +179,14 @@ if CLIENT then
 end
 
 local function net_HandleReceive(len, ply)
-    local obj_id = net.ReadUInt(Class.NETID_BITS)
-    local epoch = net.ReadUInt(Class.NET_EPOCH_BITS)
-    local domain_id = net.ReadUInt(Class.NET_DOMAIN_BITS)
+    local obj_id = net.ReadUInt(NETID_BITS)
+    local epoch = net.ReadUInt(NET_EPOCH_BITS)
+    local domain_id = net.ReadUInt(NET_DOMAIN_BITS)
 
     local slot = NetSlot.HandleReceive_GetOrAlloc(obj_id, epoch)
     if slot == nil then return end -- Client sent wrong data or tried to fool the server.
 
-    local data_len = len - CLASS.NETID_BITS - CLASS.NET_EPOCH_BITS - CLASS.NET_DOMAIN_BITS
+    local data_len = len - NETID_BITS - NET_EPOCH_BITS - NET_DOMAIN_BITS
 
     if domain_id == NET_DOMAIN_INITDELETE then
         -- Only server can tell the receiver (client) to init or delete the slot.
@@ -201,7 +203,7 @@ local function net_HandleReceive(len, ply)
 
     slot:HandleReceive_Domain(domain_id, data_len, ply)
 end
-net.Receive("CR.Class.Networking", net_HandleReceive)
+net.Receive(MSGNAME, net_HandleReceive)
 
 
 
@@ -226,12 +228,12 @@ end
 
 
 function NetSlot:DefineDomain(domain)
-    local did = 
+
 end
 
 -------------------------------------
 
---- mixin CR.Class.Networkable
+--- mixin CR.Net.Networkable
 -- An object that supports networking between client and server.
 --
 --- :NetRecvInit(len: uint) optional -- called in net.Receive context, `self` is not valid yet. Read networked ctor params here.
@@ -268,7 +270,7 @@ local function netable_OnDelete(self)
     end
 end
 
-hook.Add("CR.Class.PostInit", "CR.Class.Networking", function(obj)
+hook.Add("CR.Class.PostInit", "CR.Net.Networkable_Init", function(obj)
     if not obj.IsNetworkable then return end
 
     if SERVER then
@@ -276,11 +278,11 @@ hook.Add("CR.Class.PostInit", "CR.Class.Networking", function(obj)
     end
 end)
 
---- Adds CR.Class.Networkable to `meta`.
--- Can be used for static objects w/o constructors.
+--- Adds CR.Net.Networkable to `meta`.
+-- Can be used on static objects w/o constructors.
 --
 --- meta: metatable(CR.Class.Base)
-function Net.MakeNetworkable(meta)
+function CR.Net.MakeNetworkable(meta)
     self.IsNetworkable = true
 
     self.NetInitFromSlot = netable_InitFromSlot

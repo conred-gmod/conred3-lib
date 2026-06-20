@@ -7,7 +7,7 @@ local BitBuffer = NikNaks.BitBuffer
 -- No resetting is available. All methods are called via :
 -- (buf:ReadBool(), buf:ReadTable())
 
-local RB = Class.Define("CR.Net.RecvBuffer")
+local RB = CR.Class.Define("CR.Net.RecvBuffer")
 CR.Net.RecvBuffer = RB
 
 CR.Class.MakeConstructable(RB)
@@ -141,7 +141,7 @@ end
 --- class CR.Net.RecvCurMessage
 -- Basically all net.Read* functions but with added `self` first argument.
 -- To be used instead of CR.Class.NetRecvBuffer
-local RCM = Class.Define("CR.Net.RecvCurMessage")
+local RCM = CR.Class.Define("CR.Net.RecvCurMessage")
 CR.Net.RecvCurMessage = RCM
 
 function RCM:ReadBit()
