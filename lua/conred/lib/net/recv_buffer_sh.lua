@@ -1,6 +1,10 @@
 local BitBuffer = NikNaks.BitBuffer
 
+--- interface CR.Net.IRecvReader
+-- A class (maybe static) that provides all the net.Read* functions
+
 --- class CR.Net.RecvBuffer
+--- impl CR.Net.IRecvReader
 -- A class that reads data from current net recieve into a buffer
 -- and provides all net.Read* functions to parse the data later.
 --
@@ -139,6 +143,7 @@ end
 
 
 --- class CR.Net.RecvCurMessage
+--- impl CR.Net.IRecvReader
 -- Basically all net.Read* functions but with added `self` first argument.
 -- To be used instead of CR.Class.NetRecvBuffer
 local RCM = CR.Class.Define("CR.Net.RecvCurMessage")
