@@ -24,10 +24,11 @@ local MSGNAME = "CR.Net.DomainMessage"
 
 local function net_PreInit(obj)
     if SERVER then
-    -- Create a slot for obj
-    -- obj.Net_Slot = slot
+        obj.Net_Slot = CR.Net.Slot:GetEmpty()
     else
-        -- Check that the object was created via net
+        if obj.Net_Slot == nil then
+            CR.Error("Networkable ",obj," was created by client, not by server via networking. (.Net_Slot == nil)")
+        end
     end
 
 
@@ -41,11 +42,11 @@ local function net_PreInit(obj)
 end
 
 local function net_PostInit(obj)
-    -- obj.Net_Slot: <<mark as initialized, ready to tx/rx>>
+    obj.Net_Slot:MarkActive()
 end
 
 local function net_PostDelete(obj)
-    -- obj.Net_Slot: <<flush>>
+    obj.Net_Slot:Flush()
 end
 
 hook.Add("CR.Class.PreInit", "CR.Net.Networkable", function(obj)
@@ -79,6 +80,11 @@ hook.Add("CR.Class.PostDelete", "CR.Net.Networkable", function(obj)
     net_PostDelete(obj)
 end)
 
+local function net_AddDomain(domain)
+    self.Net_Slot:AddDomain(domain)
+
+    return domain
+end
 
 --- Adds CR.Net.Networkable to `meta`.
 -- Can be used on static objects w/o constructors.
