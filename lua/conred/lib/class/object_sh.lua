@@ -1,4 +1,4 @@
-local Class = CR.PrepareNamespace(CR, { Class = {} }).Class
+local Class = CR.Class
 
 local classes = CR.GetPersistedTable("CR.Classes")
 

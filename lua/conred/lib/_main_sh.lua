@@ -108,6 +108,14 @@ end
 CR.IncludeSmart("conred/lib/", {
     "thirdparty_sh.lua",
     "util_sh.lua",
+}, true)
+
+CR.PrepareNamespace(CR, {
+    Class = {},
+    Net = {}
+})
+
+CR.IncludeSmart("conred/lib/", {
     "persist_sh.lua",
 
     "class/object_sh.lua",
