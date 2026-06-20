@@ -132,7 +132,7 @@ function NetSlot:HandleReceive_Domain(domain_id, len, ply)
         assert(CLIENT, "Should never happen (attempt to received data into empty netslot on server)")
 
         -- Store the raw data, will parse it when object will get inited
-        local buf = Class.NetRecvBuffer(len)
+        local buf = Net.RecvBuffer(len)
         self.Domains[domain_id] = { Buffer = buf, BufferLen = len }
 
         return
@@ -141,7 +141,7 @@ function NetSlot:HandleReceive_Domain(domain_id, len, ply)
     local domain = self.Domains[domain_id]
     if domain == nil then return end -- No domain with given ID found, probably bogus net data.
 
-    domain:HandleRecv(Class.NetRecvCurMessage, len, ply)
+    domain:HandleRecv(Net.RecvCurMessage, len, ply)
 end
 
 

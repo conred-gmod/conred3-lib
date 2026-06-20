@@ -1,17 +1,16 @@
 local BitBuffer = NikNaks.BitBuffer
-local Class = CR.Class
 
---- class CR.Class.NetRecvBuffer
+--- class CR.Net.RecvBuffer
 -- A class that reads data from current net recieve into a buffer
 -- and provides all net.Read* functions to parse the data later.
 --
 -- No resetting is available. All methods are called via :
 -- (buf:ReadBool(), buf:ReadTable())
 
-local RB = Class.Define("CR.Class.NetRecvBuffer")
-Class.NetRecvBuffer = RB
+local RB = Class.Define("CR.Net.RecvBuffer")
+CR.Net.RecvBuffer = RB
 
-Class:MakeConstructable(RB)
+CR.Class.MakeConstructable(RB)
 
 function RB:OnInit(len)
     self._buf = BitBuffer:ReadFromNet(len)
@@ -139,10 +138,11 @@ function RB:ReadTable(sequential)
 end
 
 
---- Basically all net.Read* functions but with added `self` first argument.
+--- class CR.Net.RecvCurMessage
+-- Basically all net.Read* functions but with added `self` first argument.
 -- To be used instead of CR.Class.NetRecvBuffer
-local RCM = Class.Define("CR.Class.NetRecvCurMessage")
-Class.NetRecvCurMessage = RCM
+local RCM = Class.Define("CR.Net.RecvCurMessage")
+CR.Net.RecvCurMessage = RCM
 
 function RCM:ReadBit()
     return net.ReadBit()
