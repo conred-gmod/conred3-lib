@@ -123,6 +123,7 @@ CR.IncludeSmart("conred/lib/", {
     "class/registry_sh.lua",
     "semaphore_callback_sh.lua",
 
+    "net/slot_sh.lua",
     "net/recv_buffer_sh.lua",
     "net/main_sh.lua"
 }, true)
