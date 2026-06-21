@@ -99,6 +99,25 @@ function RB:ReadPlayer()
     return Entity(self._buf:ReadUInt(MAX_PLAYER_BITS))
 end
 
+function RB:ReadTable(sequential)
+    local tbl = {}
+
+    if sequential then
+        for i = 1, self._buf:ReadUInt(32) do
+            tbl[i] = self:ReadType()
+        end
+    else
+        while true do
+            local k = self:ReadType()
+            if k == nil then break end
+
+            tbl[k] = self:ReadType()
+        end
+    end
+
+    return tbl
+end
+
 local handlers = {
     [TYPE_NIL]		= function ()	return nil end,
     [TYPE_STRING]	= RB.ReadString,
@@ -120,25 +139,6 @@ function RB:ReadType(typeid)
     end
 
     return handler(self)
-end
-
-function RB:ReadTable(sequential)
-    local tbl = {}
-
-    if sequential then
-        for i = 1, self._buf:ReadUInt(32) do
-            tbl[i] = self:ReadType()
-        end
-    else
-        while true do
-            local k = self:ReadType()
-            if k == nil then break end
-
-            tbl[k] = self:ReadType()
-        end
-    end
-
-    return tbl
 end
 
 
