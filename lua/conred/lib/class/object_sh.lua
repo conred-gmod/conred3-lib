@@ -2,6 +2,12 @@ local Class = CR.Class
 
 local classes = CR.GetPersistedTable("CR.Classes")
 
+local function MakeIndex(mt)
+    return function(self, k)
+        return rawget(mt, k)
+    end
+end
+
 local function class_tostring(self)
     local invalid_marker = ""
     if not IsValid(self) then
@@ -41,7 +47,7 @@ function Class.Define(name, parent)
     meta.Base = parent
     meta.TypeName = name
     meta.__tostring = class_tostring
-    meta.__index = parent or meta
+    meta.__index = MakeIndex(parent or meta)
 
     meta.__isvalid = true
     meta.IsValid = class_IsValid
