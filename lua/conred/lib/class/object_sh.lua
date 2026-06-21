@@ -48,6 +48,8 @@ function Class.Define(name, parent)
 
     setmetatable(meta, meta)
 
+    classes[name] = meta
+
     return meta
 end
 
