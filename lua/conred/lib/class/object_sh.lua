@@ -41,15 +41,14 @@ function Class.Define(name, parent)
     meta.Base = parent
     meta.TypeName = name
     meta.__tostring = class_tostring
-    meta.__index = parent or meta
+    meta.__index = parent
 
     meta.__isvalid = true
     meta.IsValid = class_IsValid
 
     setmetatable(meta, meta)
-
     classes[name] = meta
-
+    
     return meta
 end
 
