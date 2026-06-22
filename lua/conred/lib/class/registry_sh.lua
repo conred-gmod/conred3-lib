@@ -12,7 +12,7 @@ local Class = CR.Class
 --
 --- :NextIdx() -> nonzero_uint -- returns a free index (still, validate with :ValidateIndex)
 --
---- .Objects: table(nonzero_uint, obj) -- table of stored objects. 
+--- .Objects: table(nonzero_uint, obj) -- table of stored objects.
 -- User is supposed to index or iterate the table. May be non sequential, use `pairs` instead of `ipairs`
 --- :Add(obj) -> nonzero_uint -- adds the object into registry, returns index of the object
 --- :AddWithId(obj, idx: nonzero_uint) -- adds the object into registry with specific index (doesn't have to be sequential)
@@ -27,7 +27,7 @@ function REG:OnInit(name)
     assert(isstring(name))
 
     self.Name = name
-    self.Objects = CONRED.GetPersistedTable(name)
+    self.Objects = CR.GetPersistedTable(name)
 end
 
 function REG:__tostring()
@@ -49,7 +49,7 @@ end
 
 function REG:Add(obj)
     local objs = self.Objects
-    
+
     local idx = self:NextIdx()
     if not self:ValidateIndex(idx) then
         CR.Error(self,": can't add ",obj,": generated index ",idx," is invalid (min 1, max ", self.MaxIndex, ")")
