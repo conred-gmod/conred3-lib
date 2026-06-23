@@ -1,9 +1,4 @@
 
-local Class = CR.Class
-
-local MSGNAME = "CR.Net.DomainMessage"
-
--------------------------------------
 
 --- A mixin for object that supports networking between client and server.
 --- 
@@ -15,12 +10,6 @@ local MSGNAME = "CR.Net.DomainMessage"
 --- 
 --- @field Net_Setup fun(CR.Net.Networkable) Called before :OnInit, implement it and configure net stuff here.
 --- @field Net_SendFilter CR.Net.SendFilter? Optional sendfilter used for this object. Set it in `:Net_Setup`.
---- 
---- Called in net.Start context. Write networked ctor params here.
---- @field Net_SendInit fun(self: CR.Net.Networkable)?
----
---- Called in net.Receive context, `self` is not valid yet. Read networked ctor params here.
---- @field Net_RecvInit fun(self: CR.Net.Networkable, buf: CR.Net.IRecvReader, len: integer)
 local NETABLE = {}
 
 NETABLE.IsNetworkable = true
@@ -35,19 +24,18 @@ local function net_PreInit(obj)
         end
     end
 
-
     if obj.Net_Setup == nil then
         CR.Error("Networkable ",obj," lacks implemented :NetSetup()")
     end
 
-    obj:Net_Setup()
+    obj.Net_Slot:AssignAndConfigure(obj)
 
-    obj.Net_Slot:ConfigureInit(obj.Net_SendFilter, obj.Net_SendInit, obj.Net_RecvInit)
+    obj:Net_Setup()
 end
 
 --- @param obj CR.Net.Networkable
 local function net_PostInit(obj)
-    obj.Net_Slot:MarkActive()
+    obj.Net_Slot:Activate()
 end
 
 --- @param obj CR.Net.Networkable
@@ -71,11 +59,14 @@ end)
 --- 
 --- Will error if used on non-static object.
 function NETABLE:StaticInitialized()
-    if self.Init ~= nil or self.New ~= nil or self.Construct ~= nil then
-        CR.Error("Attempt to use :Net_StaticInitialized on non-static class ",self)
+    local maybe_ctorable = self --[[@as CR.Class.Constructable]]
+    if maybe_ctorable.Init ~= nil or maybe_ctorable.New ~= nil or maybe_ctorable.Construct ~= nil then
+        CR.Error("Attempt to use :Net_StaticInitialized on non-static class ",maybe_ctorable)
     end
 
-    -- TODO: clean slot explicitly?
+    if self.Net_Slot ~= nil then
+        self.Net_Slot:Flush()
+    end
 
     net_PreInit(self)
     net_PostInit(self)
@@ -96,6 +87,23 @@ function NETABLE:AddDomain(domain)
     self.Net_Slot:AddDomain(domain)
 
     return domain
+end
+
+if SERVER then
+    --- Called in `net.Start` context. Override and write networked ctor params here.
+    --- 
+    --- SERVER-only.
+    function NETABLE:Net_SendInit()
+        -- To be overriden
+    end
+else
+    --- Called in `net.Receive` context, `self` is not valid yet. Override and read networked ctor params here.
+    --- 
+    --- CLIENT-only
+    ---@param len integer Ctor params length in bytes
+    function NETABLE:Net_RecvInit(len)
+        -- To be overriden
+    end
 end
 
 --- Adds `CR.Net.Networkable` to `meta`.

@@ -111,3 +111,15 @@ end
 function CR.Class.MakeDeletable(meta)
     table.Merge(meta, DEL)
 end
+
+---Deletes `obj` if it is non-nil and valid.
+---@param obj CR.Class.Deletable?
+---@return boolean wasDeleted
+function CR.Class.TryDelete(obj)
+    if IsValid(obj) and obj.Delete then
+        obj:Delete()
+        return true
+    end
+
+    return false
+end
