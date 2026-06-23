@@ -34,6 +34,7 @@ function CR.Class.Define(name, parent)
     local meta = classes[name]
     if meta and meta.Base == parent then return meta end
 
+---@diagnostic disable-next-line: missing-fields
     if meta == nil then meta = {} end
     table.Merge(meta, CLASS)
 

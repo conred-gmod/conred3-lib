@@ -142,6 +142,7 @@ function RB:ReadType(typeid)
         CR.Error("Error reading type with invalid typeid ",typeid)
     end
 
+    --- @cast handler fun(CR.Net.RecvBuffer): any
     return handler(self)
 end
 

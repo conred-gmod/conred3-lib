@@ -64,8 +64,11 @@ end
 function CR.Class.MakeConstructable(meta)
     table.Merge(meta, CONSTR)
 
+    -- We *are* injecting stuff, this *is* a mixin, after all.
+---@diagnostic disable: inject-field
     meta.__isvalid = false
     meta.__init_makes_valid = true
+---@diagnostic enable: inject-field
 end
 
 ------------------------------------------------------
@@ -106,5 +109,5 @@ end
 --
 --- @param meta CR.Class.Base (Fields are added)
 function CR.Class.MakeDeletable(meta)
-    meta.Delete = class_delete
+    table.Merge(meta, DEL)
 end

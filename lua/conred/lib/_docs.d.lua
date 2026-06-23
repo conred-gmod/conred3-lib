@@ -2,8 +2,12 @@
 -- A hack for LuaLS language server to recognize some stuff.
 
 
+-- Missing GMod stuff
+MAX_EDICT_BITS = 0
+MAX_PLAYER_BITS = 0
+
 -- Dependencies
-NikNaks = {}
+NikNaks = NikNaks or {}
 
 
 -------------
