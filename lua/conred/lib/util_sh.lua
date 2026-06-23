@@ -13,6 +13,36 @@ function table.ConcatToString(...)
     return table.concat(parts, "")
 end
 
+--- Like `#tbl`, but handles non-sequential tables correctly.
+--- @param tbl table
+--- @return integer # Sequential element count
+function table.SeqCount(tbl)
+    local i = 0
+
+    repeat
+        i = i + 1
+    until tbl[i] == nil
+
+    return i - 1
+end
+
+--- Removes value from array by moving the last value into now-empty slot.
+--- 
+--- Does not preserves order.
+--- @param tbl table Array
+--- @param value any Value to be removed
+--- @return integer? Index where the value used to be
+function table.RemoveFastByValue(tbl, value)
+    for i, v in ipairs(tbl) do
+        if v == value then
+            tbl[i] = tbl[#tbl]
+            tbl[#tbl] = nil
+
+            return i
+        end
+    end
+end
+
 --- Like `ErrorNoHalt`, but it halts. (`Error` is broken.)
 ---
 --- @param ... any|nil
