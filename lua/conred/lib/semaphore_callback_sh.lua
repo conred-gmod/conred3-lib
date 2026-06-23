@@ -1,35 +1,32 @@
 
---- interface CR.Waitable
--- Something you can wait for.
---
---- :AddReadyCallback(callback: fn()) -- Add callback to be called when the awaited event happens.
---- :RemoveReadyCallback(callback: fn()) -- Remove the callback
 
-
---- class CR.SemaphoredCallback
---- impl CR.Class.Constructable, CR.Class.Deletable
--- A callback with semaphore (wait counter).
---
---
---- :New() static -> CR.SemaphoredCallback
---- :Delete() -- Cleans up Waitable references (should help free some memory)
-
---- :Wait() -- Adds another event/condition to wait for.
---- :Unwait() -- Indicate that some awaited event happened.
--- (Call this as many times as :Wait() was called to execute the callbacks)
---
---- :WaitFor(waitable: CR.Waitable) -- Makes the semaphore wait for `waitable`. Call :Delete() on the semaphore if you are using this.
---
---- :DoOnce(callback: fn()) -- Adds callback to execute once after all waited events are happened.
---- :DoRepeating(callback: fn()) -- Adds callback to execute each time after all waited events are happened.
---- :CancelOnce(callback: fn()) -- Remove callback added by :DoOnce
---- :CancelRepeating(callback: fn()) -- Remove callback added by :DoRepeating
-
+--- A callback with semaphore (wait counter).
+---
+---@class CR.SemaphoredCallback: CR.Class.Constructable, CR.Class.Deletable
+---@field private _waitCount integer
+---@field private _callbacksOnce fun()[]
+---@field private _callbacks fun()[]
+---@field private _waitables CR.Waitable[]
+---
+---@field Unwait_Static fun() The same as `self:Unwait()`, but as a lambda function.
 local SC = CR.Class.Define("CR.SemaphoredCallback")
 CR.SemaphoredCallback = SC
 
 CR.Class.MakeConstructable(SC)
 CR.Class.MakeDeletable(SC)
+
+if false then -- For annotations
+    --- Creates a new semaphored callback with no awaited events.
+    --- @return CR.SemaphoredCallback
+    function SC:New()
+        return SC
+    end
+
+    --- Cleans up `CR.Waitable` references (should help free some memory)
+    function SC:Delete()
+
+    end
+end
 
 function SC:OnInit()
     self._waitCount = 0
@@ -62,28 +59,36 @@ function SC:_TryExecuteCallbacks()
     end
 end
 
-
+--- Adds another event/condition to wait for.
 function SC:Wait()
     self._waitCount = self._waitCount + 1
 end
 
+--- Makes the semaphore wait for `waitable`. 
+--- 
+--- Call :Delete() on the semaphore if you are using this to free some memory.
+--- @param waitable CR.Waitable
 function SC:WaitFor(waitable)
-    assert(waitable.AddWaitDoneCallback)
+    assert(waitable.AddReadyCallback)
 
     self:Wait()
     waitable:AddReadyCallback(self.Unwait_Static)
     table.insert(self._waitables, waitable)
 end
 
+--- Indicate that some awaited event happened.
+--- 
+--- (Call this as many times as :Wait() was called to execute the callbacks)
 function SC:Unwait()
     assert(self._waitCount > 0, "Attempt to unwait a semaphore callback without waiting first")
 
     self._waitCount = self._waitCount - 1
-    self:_TryExecuteCallback()
+    self:_TryExecuteCallbacks()
 end
 
 
-
+--- Adds callback to execute once after all waited events are happened.
+--- @param callback fun()
 function SC:DoOnce(callback)
     if self._waitCount == 0 then
         callback()
@@ -93,6 +98,8 @@ function SC:DoOnce(callback)
     table.insert(self._callbacksOnce, callback)
 end
 
+--- Adds callback to execute each time after all waited events are happened.
+--- @param callback fun()
 function SC:DoRepeating(callback)
     if self._waitCount == 0 then
         callback()
@@ -101,10 +108,14 @@ function SC:DoRepeating(callback)
     table.insert(self._callbacks, callback)
 end
 
+--- Remove callback added by :DoOnce
+--- @param callback fun()
 function SC:CancelOnce(callback)
     table.RemoveByValue(self._callbacksOnce, callback)
 end
 
+--- Remove callback added by :DoRepeating
+--- @param callback fun()
 function SC:CancelRepeating(callback)
-    table.RemoveByValue(self._callbacksRepeating, callback)
+    table.RemoveByValue(self._callbacks, callback)
 end

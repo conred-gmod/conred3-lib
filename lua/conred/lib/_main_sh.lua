@@ -1,13 +1,13 @@
 CR = CR or {}
 
---- filename: string
---- returns: bool
+--- @param filename string
+--- @return boolean
 function CR.IsLuaFile(filename)
     return string.EndsWith(filename, ".lua")
 end
 
---- filename: string
---- returns: "sv"|"cl"|"sh"|nil (nil when not a lua file)
+--- @param filename string
+--- @return nil|"sv"|"cl"|"sh" # nil when not a lua file
 function CR.GetRealmFromFilename(filename)
     if not CR.IsLuaFile(filename) then
         return nil
@@ -28,10 +28,10 @@ local realm_colors = {
     ["skip"] = Color(85,74,74)
 }
 
---- filename: string
---- realm: nil (determine from filename) | "sv"|"cl"|"sh"
---- notify: bool|nil (if true, log the include)
---- returns: <whatever include(filename) returns>|nil (if include was not called, e.g. _cl.lua file on SERVER)
+---@param filename string
+---@param realm nil|"sv"|"cl"|"sh" nil == determine from filename
+---@param notify boolean|nil if true, log the include
+---@return any|nil # Returns whatever `include(filename)` returns. Returns null if include was not called, e.g. `_cl.lua` file on SERVER.
 function CR.IncludeFile(filename, realm, notify)
     realm = realm or CR.GetRealmFromFilename(filename)
     assert(realm ~= nil, "Attempt to include non-lua file")
@@ -54,9 +54,9 @@ end
 
 --- Include all lua files in `path` (recursively, if `recurse` is set)
 ---
---- path: string (directory path, including "/")
---- notify: bool|nil (if true, do logging)
---- recurse: bool|nil
+--- @param path string directory path, including "/"
+--- @param notify boolean|nil if true, do logging
+--- @param recurse boolean|nil
 function CR.IncludeDir(path, notify, recurse)
     local files, dirs = file.Find(path .. "*", "LUA")
 
@@ -64,7 +64,7 @@ function CR.IncludeDir(path, notify, recurse)
         local file = path..fname
 
         if CR.IsLuaFile(file) then
-            CR.IncludeFile(file, notify)
+            CR.IncludeFile(file, nil, notify)
         elseif notify then
             MsgC(realm_colors.skip, "[skipped] ",path, "\n")
         end
@@ -78,7 +78,7 @@ function CR.IncludeDir(path, notify, recurse)
     end
 end
 
---- private
+--- **Private function.**
 function CR.IncludeSmartSingle(entry, notify)
     local realm = CR.GetRealmFromFilename(entry)
 
@@ -86,19 +86,19 @@ function CR.IncludeSmartSingle(entry, notify)
         CR.IncludeFile(entry, realm, notify)
     elseif string.EndsWith(entry, "/*") then
         CR.IncludeDir(string.sub(entry, 1, -3), notify, false)
-    elseif strings.EndsWith(entry, "/**") then
+    elseif string.EndsWith(entry, "/**") then
         CR.IncludeDir(string.sub(entry, 1, -4), notify, true)
     else
         ErrorNoHaltWithStack("Invalid smart include parameter ",entry)
     end
 end
 
---- A more straightforward function for including lua files for the whole addon.
+--- A more straightforward function for including lua files for the whole addon. <br>
 --- TODO: example (see below for now).
 ---
---- prefix: string
---- list: array(string)
---- notify: bool|nil (if true, do logging)
+--- @param prefix string
+--- @param list string[]
+--- @param notify boolean|nil if true, do logging
 function CR.IncludeSmart(prefix, list, notify)
     for _, entry in ipairs(list) do
         CR.IncludeSmartSingle(prefix..entry, notify)
@@ -123,8 +123,8 @@ CR.IncludeSmart("conred/lib/", {
     "class/registry_sh.lua",
     "semaphore_callback_sh.lua",
 
-    "net/txfilter_sv.lua"
-    "net/domain_sh.lua"
+    "net/txfilter_sv.lua",
+    "net/domain_sh.lua",
     "net/slot_sh.lua",
     "net/recv_buffer_sh.lua",
     "net/slot_txrx_sh.lua",

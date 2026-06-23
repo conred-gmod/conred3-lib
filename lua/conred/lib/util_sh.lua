@@ -1,7 +1,9 @@
---- Like `table.concat`, but calls `CR.ToString` on each argument.
+--- Like `table.concat`, but calls `CR.ToString` on each argument.<br>
+--- You can supply `nil`s:<br>
+--- `table.ConcatToString(nil," is ",nil) == "nil is nil"`
 ---
---- varargs: ...(any|nil)
---- result: string
+--- @param ... any|nil
+--- @return string
 function table.ConcatToString(...)
     local parts = {...}
     for i = 1, select("#", ...) do
@@ -13,15 +15,16 @@ end
 
 --- Like `ErrorNoHalt`, but it halts. (`Error` is broken.)
 ---
---- msg: ...(any|nil)
+--- @param ... any|nil
 function CR.Error(...)
     error(table.ConcatToString(...), 2)
 end
 
 --- Like `tostring`, but it returns "nil" for `nil` and prints down tables without tostring
 ---
---- val: any|nil
---- pretty_print: bool|nil (if true, tables will be tabulated and not on a single string)
+--- @param val any|nil
+--- @param pretty_print boolean|nil if true, tables will be tabulated and not on a single string
+--- @return string
 function CR.ToString(val, pretty_print)
     pretty_print = pretty_print or false
 
@@ -42,9 +45,9 @@ end
 --- Example:
 --- CR.PrepareNamespace(CR, {Object = {Net = {}}, DatabaseSV = SERVER and {}})
 ---
---- nspace: table
---- template: table
---- result: table = nspace
+--- @param nspace table
+--- @param template table
+--- @return table `= nspace`
 function CR.PrepareNamespace(nspace, template)
     assert(istable(nspace))
     assert(istable(template))

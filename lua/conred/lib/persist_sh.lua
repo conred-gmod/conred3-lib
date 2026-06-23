@@ -1,32 +1,33 @@
 local function UnlockPersistData()
-    __cr_persistdata_unlocked = true
+    __CR_persistdata_unlocked = true
 
     local HOOK_NAME = "CR.PersistTableLock"
 
     hook.Add("Tick", HOOK_NAME, function()
-        __cr_persistdata_unlocked = false
+        __CR_persistdata_unlocked = false
         hook.Remove("Tick", HOOK_NAME)
     end)
 end
 
-__cr_persistdata = __cr_persistdata or {}
+--- @type { [string]: table }
+__CR_persistdata = __CR_persistdata or {}
 
 UnlockPersistData()
 hook.Add("OnReloaded", "CR.PersistTableUnlock", UnlockPersistData)
 
 --- Returns a table that is persisted between hot reloads.
 --
---- name: string -- table name (for hot reload persistance needs)
---- default: table|nil -- a default value (new empty table if nil)
---- result: table
+--- @param name string table name (for hot reload persistance needs)
+--- @param default table|nil a default value (new empty table if nil)
+--- @return table
 function CR.GetPersistedTable(name, default)
     if default == nil then default = {} end
 
-    if __cr_persistdata[name] ~= nil then
-        return __cr_persistdata[name]
+    if __CR_persistdata[name] ~= nil then
+        return __CR_persistdata[name]
     else
-        assert(__cr_persistdata_unlocked, "Function called in wrong time (not before first game tick)")
-        __cr_persistdata[name] = default
+        assert(__CR_persistdata_unlocked, "Function called in wrong time (not before first game tick)")
+        __CR_persistdata[name] = default
         return default
     end
 end
@@ -37,7 +38,7 @@ concommand.Add("cr_persisttable_clear", function(ply)
     end
 
     UnlockPersistData()
-    for _, tbl in pairs(__cr_persistdata) do
+    for _, tbl in pairs(__CR_persistdata) do
         table.Empty(tbl)
     end
 

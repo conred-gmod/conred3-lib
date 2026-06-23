@@ -1,27 +1,28 @@
 local Class = CR.Class
 
---- class CR.Registry
--- A persistent registry of some objects
---
---- :New(name: string) static -> CR.Registry -- creates a named registry
---- .Name: string
---- :__tostring() -> string -- reports the name
---
---- .MaxIndex: nil|nonzero_uint -- max index, adding objects will fail if index > max
---- :ValidateIndex(idx: number) -> bool -- returns true if idx is uint >= 1 and, if there is .MaxIndex, <= .MaxIndex
---
---- :NextIdx() -> nonzero_uint -- returns a free index (still, validate with :ValidateIndex)
---
---- .Objects: table(nonzero_uint, obj) -- table of stored objects.
--- User is supposed to index or iterate the table. May be non sequential, use `pairs` instead of `ipairs`
---- :Add(obj) -> nonzero_uint -- adds the object into registry, returns index of the object
---- :AddWithId(obj, idx: nonzero_uint) -- adds the object into registry with specific index (doesn't have to be sequential)
---- :Remove(idx: nonzero_uint) -- removes the object at `idx` (errors if there is nothing)
-
+--- A persistent registry of some objects
+---
+--- @class CR.Registry<T>: CR.Class.Constructable
+--- @field Name string
+--- @field MaxIndex integer? Max index (nil or int>0), adding objects will fail if index > max
+--- The registered objects (persisted over hot reloads). 
+--- 
+--- User is supposed to index or iterate the table. May be non sequential, use `pairs` instead of `ipairs`.
+--- @field Objects {[integer]: T}
 local REG = Class.Define("CR.Registry")
 CR.Registry = REG
 Class.MakeConstructable(REG)
 CR.MaxIndex = nil
+
+if false then -- For annotations
+    --- Creates a named registry
+    --- @param name string
+    --- @return CR.Registry
+    function REG:New(name)
+        return REG
+    end
+end
+
 
 function REG:OnInit(name)
     assert(isstring(name))
@@ -34,19 +35,29 @@ function REG:__tostring()
     return "[registry "..self.TypeName..": "..self.Name.."]"
 end
 
+--- Returns true if `idx` is a valid index.
+---  (`idx` is uint >= 1 and, if there is `.MaxIndex`, `idx <= .MaxIndex`)
+--- @param idx integer
+--- @return boolean
 function REG:ValidateIndex(idx)
     if idx < 1 then return false end
-    if bit.tobit(idx) != idx then return false end
+    if bit.tobit(idx) ~= idx then return false end
 
     if self.MaxIndex == nil then return true end
 
     return idx <= self.MaxIndex
 end
 
+--- Returns adds free index (stil you need to validate it `:ValidateIndex`)
+--- 
+--- @return integer index
 function REG:NextIdx()
-    return table.SeqCount(objs) + 1
+    return table.SeqCount(self.Objects) + 1
 end
 
+--- Adds the object into registry, returns index of the object
+--- @param obj T
+--- @return integer
 function REG:Add(obj)
     local objs = self.Objects
 
@@ -59,6 +70,9 @@ function REG:Add(obj)
     return idx
 end
 
+--- Adds the object into registry with specific index (doesn't have to be sequential)
+--- @param obj T
+--- @param idx integer
 function REG:AddWithId(obj, idx)
     local objs = self.Objects
 
@@ -73,6 +87,8 @@ function REG:AddWithId(obj, idx)
     objs[idx] = obj
 end
 
+--- Removes the object at `idx` (errors if there is nothing).
+--- @param idx integer
 function REG:Remove(idx)
     local objs = self.Objects
 

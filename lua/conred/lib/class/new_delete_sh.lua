@@ -1,20 +1,21 @@
-local Class = CR.Class
+--- `CR.Class.Constructable`-related hooks:
+--- @hook CR.Class.PreInit(obj: CR.Class.Constructable, ctor_params: ...)
+--- @hook CR.Class.PostInit(obj: CR.Class.Constructable, ctor_params: ...)
 
---- mixin CR.Class.Constructable
---
---- .__isvalid -- false by-default, true during and after call of :Init or :New 
---- .__init_makes_valid = true -- if true, after :Init or :New is called, the object is made valid
---
---- :Construct() static -> object(self) -- construct the object without initializing it
---- :New(ctor_params: ...) static -> object(self) -- construct the object and initialize it
---
---- :Init(ctor_params: ...) -- initialize the object (used when you need to delay init from construction, use :New otherwise)
---- :OnInit(ctor_params: ...) optional
---
---- hook CR.Class.PreInit(obj: object(CR.Class.Constructable), ctor_params: ...)
---- hook CR.Class.PostInit(obj: object(CR.Class.Constructable), ctor_params: ...)
+--- A mixin that makes it possible to create instances of the class.
+--- 
+--- Use `CR.Class.MakeConstructable` to add me to your metatable.
+--- 
+--- @class CR.Class.Constructable: CR.Class.Base
+--- @field __init_makes_valid boolean If true, after `:Init` or `:New` is called, the object is made valid. True by-default.
+--- @field __isvalid boolean False by-default, true during and after `:Init` or `:New`.
+--- @field OnInit (fun(self: CR.Class.Constructable, ...): CR.Class.Constructable)? User-defined initializer.
+local CONSTR = {}
 
-local function class_construct(self)
+--- Construct the object without initializing it.
+--- 
+--- @return CR.Class.Constructable Unintialized object instance
+function CONSTR:Construct()
     local inst = {
         __isvalid = false
     }
@@ -23,15 +24,20 @@ local function class_construct(self)
     return inst
 end
 
-local function class_init(self, ...)
+--- Initialize the object.
+---  
+--- Useful when you need to separated init from construction, use `:New` otherwise.
+--- 
+--- @param ... any? Initializer params (passed into `:OnInit`)
+function CONSTR:Init(...)
     if IsValid(self) then
         CR.Error("Can't init ",self,": it is already valid (likely already initialized)")
     end
 
     hook.Run("CR.Class.PreInit", self, ...)
 
-    if inst.OnInit ~= nil then
-        inst:OnInit(...)
+    if self.OnInit ~= nil then
+        self:OnInit(...)
     end
 
     if self.__init_makes_valid then
@@ -41,56 +47,64 @@ local function class_init(self, ...)
     hook.Run("CR.Class.PostInit", self, ...)
 end
 
-local function class_new(self, ...)
-    local inst = class_construct(self)
-    self:Init(...)
+--- Construct the object and initialize it.
+--- 
+--- @param ... any? Initializer params (passed into `:OnInit`
+--- @return CR.Class.Constructable Initialized object instance
+function CONSTR:New(...)
+    local inst = self:Construct()
+    inst:Init(...)
 
     return inst
 end
 
---- Adds CR.Class.Constructable mixin to `meta`
---- meta: metatable(CR.Class.Base)
-function Class.MakeConstructable(meta)
+--- Adds `CR.Class.Constructable` mixin to `meta`
+--- 
+--- @param meta CR.Class.Base
+function CR.Class.MakeConstructable(meta)
+    table.Merge(meta, CONSTR)
+
     meta.__isvalid = false
     meta.__init_makes_valid = true
-
-    meta.Construct = class_construct
-    meta.Init = class_init
-    meta.New = class_new
 end
 
 ------------------------------------------------------
 
---- mixin CR.Class.Deletable
---
---- .__isvalid -- set to false after calling :Delete
---
---- :OnDelete(del_params: ...) optional -- the destructor/delete handler (called from delete function if it exists)
---- :Delete(del_params: ...) -- the delete function (can't be called twice)
---
---- hook CR.Class.PreDelete(obj: object(CR.Class.Deletable), del_params: ...)
---- hook CR.Class.PostDelete(obj: object(CR.Class.Deletable), del_params: ...)
+--- `CR.Class.Deletable`-related hooks:
+--- @hook CR.Class.PreDelete(obj: CR.Class.Deletable)
+--- @hook CR.Class.PostDelete(obj: CR.Class.Deletable)
 
-local function class_delete(self, ...)
+--- A mixin that makes it possible to delete objects.
+--- 
+--- Intended to be used with `CR.Class.Constructable`, but may be used on its own.
+--- @class CR.Class.Deletable: CR.Class.Base
+--- @field __isvalid boolean Set to false after calling :Delete
+--- @field OnDelete fun(CR.Class.Deletable)? User-defined destructor/delete handler
+local DEL = {}
+
+--- The delete function. 
+--- 
+--- Can't be called twice (or, if the type is `CR.Class.Constructable`, on metatables or on uninitialized objects).
+function DEL:Delete()
     if not IsValid(self) then
         CR.Error("Can't delete ",self,": it is invalid (likely it is already deleted or was not created (= attempt to delete a metatable))")
     end
 
-    hook.Run("CR.Class.PreDelete", self, ...)
+    hook.Run("CR.Class.PreDelete", self)
 
     if self.OnDelete ~= nil then
-        self:OnDelete(...)
+        self:OnDelete()
     end
 
     self.__isvalid = false
 
-    hook.Run("CR.Class.PostDelete", self, ...)
+    hook.Run("CR.Class.PostDelete", self)
 end
 
 --- Adds CR.Class.Deletable mixin to `meta`
 --- In practice should be used together with CR.Class.MakeConstructable.
 --
---- meta: metatable(CR.Class.Base) 
-function Class.MakeDeletable(meta)
+--- @param meta CR.Class.Base (Fields are added)
+function CR.Class.MakeDeletable(meta)
     meta.Delete = class_delete
 end

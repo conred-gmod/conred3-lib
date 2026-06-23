@@ -1,20 +1,24 @@
 local BitBuffer = NikNaks.BitBuffer
 
---- interface CR.Net.IRecvReader
--- A class (maybe static) that provides all the net.Read* functions
-
---- class CR.Net.RecvBuffer
---- impl CR.Net.IRecvReader
--- A class that reads data from current net recieve into a buffer
--- and provides all net.Read* functions to parse the data later.
---
--- No resetting is available. All methods are called via :
--- (buf:ReadBool(), buf:ReadTable())
-
+--- A class that reads data from current net recieve into a buffer
+--- and provides all net.Read* functions to parse the data later.
+---
+--- No resetting is available. All methods are called via :funcname
+--- (buf:ReadBool(), buf:ReadTable())
+--- @class CR.Net.RecvBuffer: CR.Class.Constructable, CR.Net.IRecvReader
 local RB = CR.Class.Define("CR.Net.RecvBuffer")
 CR.Net.RecvBuffer = RB
 
 CR.Class.MakeConstructable(RB)
+
+if false then -- For annotations
+    --- Creates a RecvBuffer, fills it with data readen from current net message.
+    --- @param len integer Amount of bits to read from current net message.
+    --- @return CR.Net.RecvBuffer
+    function RB:New(len)
+        return RB
+    end
+end
 
 function RB:OnInit(len)
     self._buf = BitBuffer:ReadFromNet(len)
@@ -141,11 +145,10 @@ function RB:ReadType(typeid)
     return handler(self)
 end
 
-
---- class CR.Net.RecvCurMessage
---- impl CR.Net.IRecvReader
--- Basically all net.Read* functions but with added `self` first argument.
--- To be used instead of CR.Class.NetRecvBuffer
+--- Basically all net.Read* functions but with added `self` first argument.
+--- 
+--- To be used instead of CR.Class.NetRecvBuffer
+--- @class CR.Net.RecvBuffer: CR.Class.Base, CR.Net.IRecvReader
 local RCM = CR.Class.Define("CR.Net.RecvCurMessage")
 CR.Net.RecvCurMessage = RCM
 

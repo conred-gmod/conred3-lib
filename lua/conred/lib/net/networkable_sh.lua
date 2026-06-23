@@ -5,23 +5,27 @@ local MSGNAME = "CR.Net.DomainMessage"
 
 -------------------------------------
 
---- mixin CR.Net.Networkable
--- An object that supports networking between client and server.
---
---- .IsNetworkable = true
---- .Net_Slot: CR.Net.Slot
---
---- :Net_Setup() abstract -- called before :OnInit, implement it and configure net stuff here.
---- :Net_StaticInitialized() -- for static classes (w/o :Init), call this after all initialization is done to activate networking.
---
--- Set/call following functions in :Net_Setup impl
---- .Net_SendFilter: CR.Net.SendFilter|nil 
---- :Net_AddDomain(domain: CR.Net.Domain) -> domain -- Adds domain to the networkable object. Max 255 domains per object. 
---
---- :Net_SendInit() optional -- called in net.Start context. Write networked ctor params here.
---- :Net_RecvInit(buf: CR.Net.IRecvReader len: uint) optional -- called in net.Receive context, `self` is not valid yet. Read networked ctor params here.
+--- A mixin for object that supports networking between client and server.
+--- 
+--- Supports static classes as well.
+---
+--- @class CR.Net.Networkable: CR.Class.Base
+--- @field IsNetworkable true
+--- @field Net_Slot CR.Net.Slot
+--- 
+--- @field Net_Setup fun(CR.Net.Networkable) Called before :OnInit, implement it and configure net stuff here.
+--- @field Net_SendFilter CR.Net.SendFilter? Optional sendfilter used for this object. Set it in `:Net_Setup`.
+--- 
+--- Called in net.Start context. Write networked ctor params here.
+--- @field Net_SendInit fun(self: CR.Net.Networkable)?
+---
+--- Called in net.Receive context, `self` is not valid yet. Read networked ctor params here.
+--- @field Net_RecvInit fun(self: CR.Net.Networkable, buf: CR.Net.IRecvReader, len: integer)
+local NETABLE = {}
 
+NETABLE.IsNetworkable = true
 
+--- @param obj CR.Net.Networkable
 local function net_PreInit(obj)
     if SERVER then
         obj.Net_Slot = CR.Net.Slot:GetEmpty()
@@ -41,10 +45,12 @@ local function net_PreInit(obj)
     obj.Net_Slot:ConfigureInit(obj.Net_SendFilter, obj.Net_SendInit, obj.Net_RecvInit)
 end
 
+--- @param obj CR.Net.Networkable
 local function net_PostInit(obj)
     obj.Net_Slot:MarkActive()
 end
 
+--- @param obj CR.Net.Networkable
 local function net_PostDelete(obj)
     obj.Net_Slot:Flush()
 end
@@ -61,17 +67,18 @@ hook.Add("CR.Class.PostInit", "CR.Net.Networkable", function(obj)
     net_PostInit(obj)
 end)
 
-local function net_StaticInitialized(obj)
-    assert(obj.IsNetworkable, "Not a Networkable")
-    
-    if obj.Init ~= nil or obj.New ~= nil or obj.Construct ~= nil then
-        CR.Error("Attempt to use :Net_StaticInitialized on non-static class ",obj)
+--- Marks the static networkable class as initialized, activates networking.
+--- 
+--- Will error if used on non-static object.
+function NETABLE:StaticInitialized()
+    if self.Init ~= nil or self.New ~= nil or self.Construct ~= nil then
+        CR.Error("Attempt to use :Net_StaticInitialized on non-static class ",self)
     end
 
     -- TODO: clean slot explicitly?
 
-    net_PreInit(obj)
-    net_PostInit(obj)
+    net_PreInit(self)
+    net_PostInit(self)
 end
 
 hook.Add("CR.Class.PostDelete", "CR.Net.Networkable", function(obj)
@@ -80,19 +87,21 @@ hook.Add("CR.Class.PostDelete", "CR.Net.Networkable", function(obj)
     net_PostDelete(obj)
 end)
 
-local function net_AddDomain(domain)
+--- Adds domain to the networkable object. Max 255 domains per object. 
+--- 
+--- Call me in `:Net_Setup` only.
+--- @param domain CR.Net.Domain
+--- @return CR.Net.Domain # `= domain`
+function NETABLE:AddDomain(domain)
     self.Net_Slot:AddDomain(domain)
 
     return domain
 end
 
---- Adds CR.Net.Networkable to `meta`.
--- Can be used on static objects w/o constructors.
+--- Adds `CR.Net.Networkable` to `meta`.
+--- Can be used on static objects w/o constructors.
 --
---- meta: metatable(CR.Class.Base)
+--- @param meta CR.Class.Base
 function CR.Net.MakeNetworkable(meta)
-    self.IsNetworkable = true
-
-    self.Net_StaticInitialized = net_StaticInitialized
-    self.Net_AddDomain = net_AddDomain
+    table.Merge(meta, NETABLE)
 end
