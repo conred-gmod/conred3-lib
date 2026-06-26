@@ -26,6 +26,19 @@ function table.SeqCount(tbl)
     return i - 1
 end
 
+--- Like `table.HasValue(arr, value)`, but for arrays and faster.
+--- @param arr any[]
+--- @param value any
+--- @return boolean has_value
+--- @return integer? first_value_index
+function table.SeqHasValue(arr, value)
+    for i, value in ipairs(arr) do
+        if arr == value then return true, i end
+    end
+
+    return false, nil
+end
+
 --- Removes value from array by moving the last value into now-empty slot.
 --- 
 --- Does not preserves order.
