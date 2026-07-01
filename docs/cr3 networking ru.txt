@@ -151,7 +151,38 @@ Beware.
 		assert(IsValid(dep1) and IsValid(dep2))
 	end
 	
-	
+- Отправка домена
+	- Причина
+		- Вызов события (для EventDomain) или обновление данных (для VarDomain)
+		- Попадание новых игроков в фильтр отправки (для VarDomain и InitDomain, SV->CL)
+		- Готовность объекта-владельца к отправки по сети (для VarDomain в обе стороны, для InitDomain, SV->CL)
+		- Игрок с устаревшими данными вновь попадает в фильтр отправки (для VarDomain, SV->CL) (доп. фильтрация по игрокам с устаревшими данными)
+		- Отправка последующих частей домена с несколькими частями (для MultipartEventDomain, MultipartVarDomain)
+	- Логика отправки
+		- EventDomain (SV->CL, CL->SV): отправить сообщение (userdata) получателям
+		- InitDomain (SV->CL): отправить сообщение (typename:string, userdata) получателям с Recieved[ply] ~= true, установить Recieved[ply] = true
+		- VarDomain (SV->CL): отправить сообщение (userdata) получателям с RecievedVersion[ply] ~= CurVersion, установить RecievedVersion[ply] = CurVersion 
+		- VarDomain (CL->SV): отправить сообщение (userdata) серверу
+		- MultipartEventDomain (SV->CL, CL->SV):
+			1. Запомнить список получателей, данные. Расчитать число частей, если не константа.
+			2. Для каждой части отправить сообщение получателям.
+				- Формат SV->CL: (part: uint, last_part: bool, data[part]: userdata)
+				- Формат CL->SV: (part: uint, part_count: uint, data[part]: userdata)
+				- При запуске нового события, в зависимости от конфигурации домена, либо остановить это и начать новое, либо продолжить это и пропустить новое.
+		- MultipartVarDomain (SV->CL)
+			1. Запомнить версию, данные. Расчитать число частей, если не константа.
+			2. В цикле отправлять части по порядку получателям.
+				- Получатели - игроки по фильтру с RecievedVersion[ply] ~= CurVersion
+				???
+
+				- Формат SV->CL: (part: uint, last_part: bool, data[part]: userdata)
+				- Формат CL->SV: (part: uint, part_count: uint, data[part]: userdata)
+				- При изменении данных остановить цикл, начать отправку заново.
+			3. Установить RecievedVersion[ply] = CurVersion
+		- MultipartVarDomain (CL->SV)
+			???
+
+
 ## Сетёвка: использование
 
 local AdminFilter = CR.Net.PermissionFilter("admin") -- Example custom filter
