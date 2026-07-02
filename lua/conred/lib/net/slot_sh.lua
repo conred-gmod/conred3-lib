@@ -7,7 +7,7 @@ CR.Net.SLOT_BITS = 16
 local SLOT_MAX = bit.lshift(1, CR.Net.SLOT_BITS) - 1
 
 CR.Net.GEN_BITS = 12
-local GEN_MASK = bit.lshift(1, CR.Net.GEN_BITS) - 1
+CR.Net.GEN_MASK = bit.lshift(1, CR.Net.GEN_BITS) - 1
 
 --- @class CR.Net.Slot: CR.Class.Constructable
 --- @field Id integer Network id of the slot.
@@ -15,24 +15,24 @@ local GEN_MASK = bit.lshift(1, CR.Net.GEN_BITS) - 1
 --- @field Active boolean Can this slot be networked?
 --- @field Gen integer Generation of the data in the slot. Increased when new object get assigned into slot.
 --- 
---- @field private Registry CR.Registry<CR.Net.Slot>
---- @field private _domains CR.Net.Domain[]
---- @field private _domainInit CR.Net.DomainInit?
---- @field private _sendFilter CR.Net.SendFilter?
+--- @field _registry CR.Registry<CR.Net.Slot>
+--- @field _domains CR.Net.Domain[]
+--- @field _domainInit CR.Net.DomainInit?
+--- @field _sendFilter CR.Net.SendFilter?
 local Slot = Class.Define("CR.Net.Slot")
 Class.MakeConstructable(Slot)
 CR.Net.Slot = Slot
 
 
-Slot.Registry = CR.Registry:New("CR.Net.Slot.Registry")
-Slot.Registry.MaxIndex = SLOT_MAX
+Slot._registry = CR.Registry:New("CR.Net.Slot._registry")
+Slot._registry.MaxIndex = SLOT_MAX
 
 function Slot:OnInit(id)
     self.Id = id
     self.Gen = 0
     self:Flush()
 
-    self.Registry:AddWithId(self, id)
+    self._registry:AddWithId(self, id)
 end
 
 if false then -- For annotations
@@ -50,13 +50,13 @@ if SERVER then
     ---SERVER-only.
     ---@return CR.Net.Slot
     function Slot.GetEmpty()
-        for _, slot in pairs(Slot.Registry.Objects) do
+        for _, slot in pairs(Slot._registry.Objects) do
             if slot.Obj == nil then
                 return slot
             end
         end
 
-        return Slot:New(Slot.Registry:NextIdx())
+        return Slot:New(Slot._registry:NextIdx())
     end
 end
 
@@ -67,6 +67,16 @@ function Slot:__tostring()
     local object = self.Obj and tostring(self.Obj) or "[no object]"
 
     return "[slot #"..id.." (gen "..gen..", "..active..") for "..object.."]"
+end
+
+function Slot:IsValid()
+    return self.Active
+end
+
+---Sets slot's generation (w/ proper wraparound)
+---@param gen integer
+function Slot:SetGen(gen)
+    self.Gen = bit.band(gen, CR.Net.GEN_MASK)
 end
 
 --- Resets slot's contents.
@@ -85,7 +95,7 @@ function Slot:Flush()
     end
 
     if self.Obj ~= nil then
-        self.Gen = bit.band(self.Gen + 1, GEN_MASK)
+        self:SetGen(self.Gen + 1)
     end
 
     self.Obj = nil

@@ -115,3 +115,8 @@ end
 --- @return table
 function RR:ReadTable(sequential)
 end
+
+
+
+--- @class CR.Net.NetConstructable: CR.Net.Networkable, CR.Class.Constructable
+local NetConstructable
