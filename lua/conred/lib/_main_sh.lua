@@ -126,7 +126,6 @@ CR.IncludeSmart("conred/lib/", {
     "net/sendfilter_sv.lua",
     "net/domain_sh.lua",
     "net/slot_sh.lua",
-    "net/recv_buffer_sh.lua",
     "net/slot_txrx_sh.lua",
     "net/networkable_sh.lua"
 }, true)

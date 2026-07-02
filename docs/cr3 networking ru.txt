@@ -260,16 +260,16 @@ function Obj:Net_Setup() -- Called by the net lib
 				net.WriteVector(v.Pos)
 			end
 		end,
-		Recv = function(domain, buf, len) -- CLIENT
-			self.Pos = buf:ReadVector()
-			self.Var1 = buf:ReadUInt(32)
-			self.Var2 = buf:ReadString()
+		Recv = function(domain, len) -- CLIENT
+			self.Pos = net.ReadVector()
+			self.Var1 = net.ReadUInt(32)
+			self.Var2 = net.ReadString()
 			
 			local arr = {}
-			for i = 1, buf:ReadUInt(16) do
+			for i = 1, net.ReadUInt(16) do
 				arr[i] = {
-					Num = buf:ReadUInt(4),
-					Pos = buf:ReadVector()
+					Num = net.ReadUInt(4),
+					Pos = net.ReadVector()
 				}
 			end
 			
@@ -285,8 +285,8 @@ function Obj:Net_Setup() -- Called by the net lib
 			net.WriteString(msg)
 		end,
 
-		Recv = function(domain, buf, len) -- CLIENT
-			self:OnTrolled(buf:ReadString())
+		Recv = function(domain, len) -- CLIENT
+			self:OnTrolled(net.ReadString())
 		end,
 
 		SendFilter = AdminFilter, -- ANDed with self.Net_SendFilter
@@ -297,8 +297,8 @@ function Obj:Net_SendInit() -- Send constructor parameters, basically
 	net.WriteString(self.Name)
 end
 
-function Obj:Net_RecvInit(buf) -- Receive constructor parameters. Called before :Init on client.
-	self.Name = buf:ReadString()
+function Obj:Net_RecvInit(len) -- Receive constructor parameters. Called before :Init on client.
+	self.Name = net.ReadString()
 end
 
 function Obj:Init(name)
