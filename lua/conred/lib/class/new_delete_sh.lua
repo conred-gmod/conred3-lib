@@ -64,18 +64,23 @@ end
 
 --- Adds `CR.Class.Constructable` mixin to `meta`
 --- 
---- @param meta CR.Class.Base
+--- @param meta CR.Class.Constructable
 function CR.Class.MakeConstructable(meta)
+    assert(meta.IsStatic ~= true, "Can't make static class constructable")
+
     table.Merge(meta, CONSTR)
 
-    -- We *are* injecting stuff, this *is* a mixin, after all.
----@diagnostic disable: inject-field
+
     meta.__isvalid = false
     meta.__init_makes_valid = true
----@diagnostic enable: inject-field
 end
 
 ------------------------------------------------------
+
+--- `CR.Class.StaticInitable`-related hooks:
+--- @hook CR.Class.PreStaticInit(meta: CR.Class.Constructable)
+--- @hook CR.Class.PostStaticInit(metatable: CR.Class.Constructable)
+
 
 --- A mixin that adds static initialization to static class.
 --- 
@@ -85,7 +90,7 @@ end
 --- @field IsStatic true
 --- @field __isvalid boolean False by-default, true during and after `:StaticInit` (if .__delayStaticInit == false) or `:StaticInit_Delayed`
 --- @field __delayStaticInit boolean False by-default, if true, static init will be delayed until `:StaticInit_Delayed` is called
---- @field private __staticInitStarted boolean
+--- @field __staticInitStarted boolean Fals by-default, true after `:StaticInit` is called.
 --- @field OnStaticInit (fun(self: CR.Class.StaticInitable))? Callback 
 local STINIT = {}
 
@@ -109,16 +114,22 @@ end
 function STINIT:StaticInit_Delayed()
     assert(self.__staticInitStarted and not self.__isvalid)
 
+    hook.Run("CR.Class.PreStaticInit", self)
+
     if self.OnStaticInit ~= nil then
         self:OnStaticInit()
     end
 
     self.__isvalid = true
+
+    hook.Run("CR.Class.PostStaticInit", self)
 end
 
 ---Adds `CR.Class.StaticInitable` mixin to `meta`
----@param meta CR.Class.Base
+---@param meta CR.Class.StaticInitable
 function CR.Class.MakeStaticInitable(meta)
+    assert(meta.IsStatic ~= false, "Can't make constructable class static")
+
     table.Merge(meta, CONSTR)
 end
 
@@ -130,8 +141,7 @@ end
 
 --- A mixin that makes it possible to delete objects.
 --- 
---- Intended to be used with `CR.Class.Constructable`, but may be used on its own.
---- @class CR.Class.Deletable: CR.Class.Base
+--- @class CR.Class.Deletable: CR.Class.Constructable
 --- @field __isvalid boolean Set to false after calling :Delete
 --- @field OnDelete fun(CR.Class.Deletable)? User-defined destructor/delete handler
 local DEL = {}
@@ -156,10 +166,11 @@ function DEL:Delete()
 end
 
 --- Adds CR.Class.Deletable mixin to `meta`
---- In practice should be used together with CR.Class.MakeConstructable.
 --
---- @param meta CR.Class.Base (Fields are added)
+--- @param meta CR.Class.Deletable
 function CR.Class.MakeDeletable(meta)
+    assert(meta.IsStatic == false, "Can't use MakeDeletable on classes w/o MakeConstructable used")
+
     table.Merge(meta, DEL)
 end
 
@@ -167,8 +178,9 @@ end
 ---@param obj CR.Class.Deletable?
 ---@return boolean wasDeleted
 function CR.Class.TryDelete(obj)
-    if IsValid(obj) and obj.Delete then
-        obj:Delete()
+    local obj_notnil = obj --[[@as CR.Class.Deletable]]
+    if IsValid(obj) and obj_notnil.Delete then
+        obj_notnil:Delete()
         return true
     end
 
