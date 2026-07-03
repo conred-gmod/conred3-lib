@@ -33,5 +33,8 @@ function Waitable:RemoveReadyCallback(callback)
 
 end
 
---- @class CR.Net.NetConstructable: CR.Net.Networkable, CR.Class.Constructable
-local NetConstructable
+--- @class CR.Net.InstanceNetworkable: CR.Class.Constructable, CR.Class.Deletable, CR.Net.Networkable
+local Net_InstanceNetworkable
+
+--- @class CR.Net.StaticNetworkable: CR.Class.StaticInitable, CR.Net.Networkable
+local Net_StaticNetworkable

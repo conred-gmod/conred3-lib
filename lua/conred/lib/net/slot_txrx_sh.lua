@@ -101,6 +101,13 @@ net.Receive(MSG, function(len, ply)
     domain:Net_RecvData(userdata_len, ply)
 end)
 
+---@param obj CR.Net.Networkable
+function Slot:AssignAndConfigureAndSetup(obj)
+    obj.Net_Slot = self
+    self:AssignAndConfigure(obj)
+    obj:Net_Setup()
+end
+
 if CLIENT then
     ---@param typename string
     ---@param gen integer
@@ -113,7 +120,7 @@ if CLIENT then
         self:Flush()
         self:SetGen(gen)
 
-        local meta = CR.Class.Get(typename) --[[@as CR.Net.NetConstructable?]]
+        local meta = CR.Class.Get(typename) --[[@as CR.Net.Networkable]]
 
         if meta == nil then
             CR.Error(self,": got constructor message for ",typename,", but no such object exist")
@@ -122,22 +129,97 @@ if CLIENT then
         end
         ---@cast meta -nil
     
-        if meta.Construct ~= nil then
-            self:Net_RecvConstructor_NonStatic(meta, userdata_len)
+        ---@type CR.Net.InstanceNetworkable|CR.Net.StaticNetworkable
+        local obj
+
+        if meta.IsStatic == false then
+            ---@cast meta CR.Net.InstanceNetworkable
+            obj = meta:Construct() --[[@as CR.Net.InstanceNetworkable]]
+        elseif meta.IsStatic == true then
+            ---@cast meta CR.Net.StaticNetworkable
+            if not meta.__staticInitStarted then
+                CR.Error(self,": receiving net init for static object ",meta,", which wasn't static initied yet")
+            end
+
+            obj = meta
         else
-            self:Net_RecvConstructor_Static(meta, userdata_len)
+            CR.Error(self, ": got constructor message for ",meta," which is neither constructable nor (explicitly) static.")
         end
-    end
 
-    ---@param meta CR.Net.Networkable
-    ---@param userdata_len integer
-    function Slot:Net_RecvConstructor_Static(meta, userdata_len)
-        -- TODO
-    end
+        self:AssignAndConfigureAndSetup(obj)
+        self._domainInit:Net_RecvData(userdata_len)
 
-    ---@param meta CR.Net.NetConstructable
-    ---@param userdata_len integer
-    function Slot:Net_RecvConstructor_NonStatic(meta, userdata_len)
-        -- TODO
+        if obj.IsStatic then
+            obj:StaticInit_Delayed()
+        else 
+            obj:Init()
+        end
+
+        self:Activate()
     end
 end
+
+---@param obj CR.Net.Networkable
+local function net_PreInit(obj)
+    if CLIENT then
+        if obj.Net_Slot == nil then
+            CR.Error("Networkable ",obj," was created by client, not by server via networking. (.Net_Slot == nil)")
+        end
+        return
+    end
+
+    local slot
+
+    if obj.IsStatic and obj.Net_Slot ~= nil then -- Hot reload
+        slot = obj.Net_Slot
+        slot:Flush()
+    else
+        slot = Slot:GetEmpty()
+    end
+    
+    slot:AssignAndConfigureAndSetup(obj)
+end
+
+---@param obj CR.Net.Networkable
+local function net_PostInit(obj)
+    if CLIENT then return end
+
+    obj.Net_Slot:Activate()
+end
+
+hook.Add("CR.Class.PreInit", "CR.Net.InitSlotOnNetworkable", function(obj)
+    if not obj.IsNetworkable then return end
+
+    net_PreInit(obj)
+end)
+
+hook.Add("CR.Class.PreStaticInit", "CR.Net.InitSlotOnNetworkable", function(obj)
+    if not obj.IsNetworkable then return end
+
+    net_PreInit(obj)
+end)
+
+if SERVER then
+    hook.Add("CR.Class.PostInit", "CR.Net.InitSlotOnNetworkable", function(obj)
+        if not obj.IsNetworkable then return end
+
+        net_PostInit(obj)
+    end)
+
+    hook.Add("CR.Class.PostStaticInit", "CR.Net.InitSlotOnNetworkable", function(obj)
+        if not obj.IsNetworkable then return end
+
+        net_PostInit(obj)
+    end)
+end
+
+--- @param obj CR.Net.InstanceNetworkable
+local function net_PostDelete(obj)
+    obj.Net_Slot:Flush()
+end
+
+hook.Add("CR.Class.PostDelete", "CR.Net.FlushSlotOnNetworkable", function(obj)
+    if not obj.IsNetworkable then return end
+
+    net_PostDelete(obj)
+end)
