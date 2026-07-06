@@ -8,6 +8,30 @@ function SF:NotifyChanged()
     
 end
 
+---Returns players passing the filter.
+---@return Player[]
+function SF:GetArray()
+    assert(false, "Unimplemented")
+end
+
+---Returns recipient filter matching this.
+---@return CRecipientFilter
+function SF:GetRecipientFilter()
+    assert(false, "Unimplemented")
+end
+
+---Returns best representation of the filter.
+---@return Player[]|CRecipientFilter
+function SF:GetBestRepr()
+    assert(false, "Unimplemented")
+end
+
+---Returns true if no player currently match the filter.
+---@return boolean
+function SF:IsEmpty()
+    assert(false, "Unimplemented")
+end
+
 Class.MakeConstructable(SF)
 Class.MakeDeletable(SF)
 
@@ -20,7 +44,7 @@ local NOTIFF = Class.Define("CR.Net.NotifiedSendFilter", SF)
 local filters = CR.GetPersistedTable("CR.Net.NotifiedSendFilter.List")
 
 function NOTIFF:OnInit(filter)
-    self.Base.OnInit(self)
+    SF.OnInit(self)
 
     self._players = {}
     self._filter = filter
@@ -28,12 +52,16 @@ function NOTIFF:OnInit(filter)
     table.insert(filters, self)
 end
 
+function NOTIFF:GetArray()
+    return self._players
+end
+
 function NOTIFF:OnDelete()
     table.RemoveFastByValue(filters, self)
 
     self._filter = nil
 
-    self.Base.OnDelete(self)
+    SF.OnDelete(self)
 end
 
 --- @param ply Player

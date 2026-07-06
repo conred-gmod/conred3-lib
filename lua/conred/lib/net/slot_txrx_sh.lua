@@ -1,3 +1,5 @@
+local Class = CR.Class
+local Domain = CR.Net.Domain
 
 local SLOT_BITS = CR.Net.SLOT_BITS
 local GEN_BITS = CR.Net.GEN_BITS
@@ -36,9 +38,7 @@ function Slot:Net_SendDomain(recip)
     end
 end
 
-
-
-net.Receive(MSG, function(len, ply)
+local function Slot_RecvMsg(len, ply)
     local slot_id = net.ReadUInt(SLOT_BITS)
     local gen = net.ReadUInt(GEN_BITS)
     local domain_id = net.ReadUInt(DOMAIN_BITS)
@@ -84,10 +84,7 @@ net.Receive(MSG, function(len, ply)
                 slot:SetGen(gen + 1)
             end
         else -- Constructor
-            local typename = net.ReadString()
-            userdata_len = userdata_len - 8 * (#typename + 1)
-
-            slot:Net_RecvConstructor(typename, gen, userdata_len)
+            slot:Net_RecvConstructor(gen, userdata_len)
         end
 
         return
@@ -99,7 +96,9 @@ net.Receive(MSG, function(len, ply)
     end
 
     domain:Net_RecvData(userdata_len, ply)
-end)
+end
+
+net.Receive(MSG, Slot_RecvMsg)
 
 ---@param obj CR.Net.Networkable
 function Slot:AssignAndConfigureAndSetup(obj)
@@ -109,16 +108,15 @@ function Slot:AssignAndConfigureAndSetup(obj)
 end
 
 if CLIENT then
-    ---@param typename string
     ---@param gen integer
     ---@param userdata_len integer
-    function Slot:Net_RecvConstructor(typename, gen, userdata_len)
+    function Slot:Net_RecvConstructor(gen, userdata_len)
+        local typename = net.ReadString()
+        userdata_len = userdata_len - 8 * (#typename + 1)
+
         if self.Gen ~= gen and self.Gen ~= bit.band(gen - 1, GEN_MASK) then
             MsgN(self, ": got constructor message (typename ",typename,", gen ",gen,"), but skipped some generations")
         end
-
-        self:Flush()
-        self:SetGen(gen)
 
         local meta = CR.Class.Get(typename) --[[@as CR.Net.Networkable]]
 
@@ -145,6 +143,9 @@ if CLIENT then
         else
             CR.Error(self, ": got constructor message for ",meta," which is neither constructable nor (explicitly) static.")
         end
+
+        self:Flush()
+        self:SetGen(gen)
 
         self:AssignAndConfigureAndSetup(obj)
         self._domainInit:Net_RecvData(userdata_len)
@@ -223,3 +224,86 @@ hook.Add("CR.Class.PostDelete", "CR.Net.FlushSlotOnNetworkable", function(obj)
 
     net_PostDelete(obj)
 end)
+
+--- A special domain used to pass object constructor parameters and destructor calls from server to client.
+--- 
+--- @class CR.Net.DomainInit: CR.Net.Domain
+--- @field Object CR.Net.Networkable
+--- @field InitedPlayers CRecipientFilter? Exists on SERVER
+local DI = Class.Define("CR.Net.DomainInit", Domain)
+CR.Net.DomainInit = DI
+
+---@param obj CR.Net.Networkable
+---@param sf CR.Net.SendFilter?
+function DI:OnInit(obj, sf)
+    Domain.OnInit(self, {
+        SvToCl = true,
+        ClToSv = false,
+        SendFilter = sf
+    })
+
+    self.Object = obj
+
+    if SERVER then
+        self.InitedPlayers = RecipientFilter()
+    end
+end
+
+if SERVER then
+    ---@private
+    function DI:SendInit()
+        if self._sendFilter:IsEmpty() then return end
+
+        local txfilter = RecipientFilter()
+        txfilter:AddPlayers(self._sendFilter:GetBestRepr())
+        txfilter:RemovePlayers(self.InitedPlayers)
+
+        if self._sendFilter:IsEmpty() then return end
+
+        self:Net_Start()
+            net.WriteString(self.Object.TypeName) -- Parsed in Slot:Net_RecvConstructor above
+            self.Object:Net_SendInit()
+        self:Net_Send(txfilter)
+
+        self.InitedPlayers:AddPlayers(txfilter)
+    end
+
+    ---@private
+    function DI:SendRemove()
+        self:Net_Start()
+        self:Net_Send(self.InitedPlayers) -- Parsed in Slot_RecvMsg above
+
+        self.InitedPlayers:RemoveAllPlayers()
+    end
+
+    ---@param added boolean
+    function DI:Net_OnRecvListChanged(added)
+        if added then self:SendInit() end
+    end
+
+    function DI:OnActivated()
+        self:SendInit()
+    end
+
+    function DI:OnDelete()
+        self:SendRemove()
+
+        Domain.OnDelete(self)
+    end
+else
+    function DI:Net_OnRecvData(len)
+        -- TypeName parsed in Slot:Net_RecvConstructor
+        self.Object:Net_RecvInit(len)
+    end
+end
+
+
+if false then -- For annotations
+    ---Makes new init domain
+    ---@param obj CR.Net.Networkable
+    ---@param sf CR.Net.SendFilter? SERVER-only
+    ---@return CR.Net.DomainInit
+    function DI:New(obj, sf)
+        return DI
+    end
+end

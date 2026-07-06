@@ -69,6 +69,7 @@ function Slot:__tostring()
     return "[slot #"..id.." (gen "..gen..", "..active..") for "..object.."]"
 end
 
+--- TODO: not how it works!!
 function Slot:IsValid()
     return self.Active
 end
@@ -129,7 +130,8 @@ function Slot:AddDomain(domain)
         CR.Error(self, ": called AddDomain, but there are too many domains already (at max=",DOMAIN_MAX,")")
     end
 
-    table.insert(self._domains, domain)
+    local id = table.insert(self._domains, domain)
+    domain:Attach(self, id)
 end
 
 ---Assigns object to the slot and configures the slot based on the object.
@@ -139,23 +141,8 @@ function Slot:AssignAndConfigure(obj)
 
     self.Obj = obj
     local sf = obj.Net_SendFilter or CR.Net.SendFilter_Everyone
-    self._domainInit = CR.Net.DomainInit:New({
-        Send = function()
-            if not IsValid(obj) then
-                CR.Error("Attempt to send init for object ",obj,", but it is invalid.")
-            end
-            
-            obj:Net_SendInit()
-        end,
-        Recv = function(len)
-            if IsValid(obj) then
-                CR.Error("Recieved init for object ",obj,", but it is already valid (inited)")
-            end
-
-            obj:Net_RecvInit(len)
-        end,
-        SendFilter = sf
-    })
+    self._domainInit = CR.Net.DomainInit:New(obj, sf)
+    self._domainInit:Attach(self, 0)
     self._sendFilter = sf
 end
 
@@ -170,5 +157,9 @@ function Slot:Activate()
     end
 
     self.Active = true
-    -- TODO: activate the domains?
+
+    self._domainInit:Activate()
+    for _, domain in ipairs(self._domains) do
+        domain:Activate()
+    end
 end
