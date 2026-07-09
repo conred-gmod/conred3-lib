@@ -1,44 +1,11 @@
 local Class = CR.Class
-
---- @class CR.Net.SendFilter: CR.Class.Constructable, CR.Class.Deletable
-local SF = Class.Define("CR.Net.SendFilter")
-CR.Net.SendFilter = SF
-
-function SF:NotifyChanged()
-    
-end
-
----Returns players passing the filter.
----@return Player[]
-function SF:GetArray()
-    assert(false, "Unimplemented")
-end
-
----Returns recipient filter matching this.
----@return CRecipientFilter
-function SF:GetRecipientFilter()
-    assert(false, "Unimplemented")
-end
-
----Returns best representation of the filter.
----@return Player[]|CRecipientFilter
-function SF:GetBestRepr()
-    assert(false, "Unimplemented")
-end
-
----Returns true if no player currently match the filter.
----@return boolean
-function SF:IsEmpty()
-    assert(false, "Unimplemented")
-end
-
-Class.MakeConstructable(SF)
-Class.MakeDeletable(SF)
+local SF = CR.Net.SendFilter
 
 --- @class CR.Net.NotifiedSendFilter: CR.Net.SendFilter
 --- @field _players Player[]
 --- @field _filter fun(Player): boolean
 local NOTIFF = Class.Define("CR.Net.NotifiedSendFilter", SF)
+CR.Net.NotifiedSendFilter = NOTIFF
 
 --- @type CR.Net.NotifiedSendFilter[]
 local filters = CR.GetPersistedTable("CR.Net.NotifiedSendFilter.List")
