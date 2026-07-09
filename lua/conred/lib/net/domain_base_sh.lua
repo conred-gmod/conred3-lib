@@ -123,16 +123,15 @@ end
 ---Sends a domain net message to opposite realm.
 ---
 ---@protected
----@param sf CR.Net.SendFilter|Player[]|CRecipientFilter? On SERVER, a sendfilter or array of recieving players or a recipientfilter or a domain sendfilter if nil. On CLIENT, ignored. 
+---@param sf CR.Net.SendFilter|CRecipientFilter? On SERVER, a sendfilter, a recipientfilter or a domain sendfilter if nil. On CLIENT, ignored. 
 function Domain:Net_Send(sf)
     if SERVER and sf == nil then
         sf = self._sendFilter
     end
 
-    if sf and sf.GetArray then
-        sf = sf:GetArray()
+    if sf and sf.IsSendFilter then
+        sf = sf.RecipFilter
     end
-    ---@cast sf Player[]|CRecipientFilter?
 
     self.Slot:Net_SendDomain(sf)
 end

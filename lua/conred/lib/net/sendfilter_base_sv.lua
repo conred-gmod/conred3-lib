@@ -1,38 +1,44 @@
 local Class = CR.Class
 
+--- A send filter. Contains CRecipientFilter and provides callbacks when players are added to/removed from it.
+--- 
 --- @class CR.Net.SendFilter: CR.Class.Constructable, CR.Class.Deletable
 --- @field private _callbacks fun(added: boolean, removed: boolean)[]
 --- @field NotifyPlayerConnected boolean Static, false by-default.
---- @field NotifyPlayerDisconnected boolean Static, false by-default.
+--- --@field NotifyPlayerDisconnected boolean Static, false by-default.
+--- @field RecipFilter CRecipientFilter 
 local SF = Class.Define("CR.Net.SendFilter")
 CR.Net.SendFilter = SF
 
 Class.MakeConstructable(SF)
 Class.MakeDeletable(SF)
 
+SF.IsSendFilter = true
 SF.NotifyPlayerConnected = false
-SF.NotifyPlayerDisconnected = false
+--SF.NotifyPlayerDisconnected = false
 
 --- @type CR.Net.SendFilter[]
 local filters = CR.GetPersistedTable("CR.Net.SendFilter.List")
 
 function SF:OnInit()
+    self.RecipFilter = RecipientFilter()
+
     self._callbacks = {}
 
-    if self.NotifyPlayerConnected or self.NotifyPlayerDisconnected then
+    if self.NotifyPlayerConnected --[[or self.NotifyPlayerDisconnected]] then
         table.insert(filters, self)
     end
 end
 
 function SF:OnDelete()
-    if self.NotifyPlayerConnected or self.NotifyPlayerDisconnected then
+    if self.NotifyPlayerConnected --[[or self.NotifyPlayerDisconnected]] then
         table.RemoveFastByValue(filters, self)
     end
 
     self._callbacks = nil
 end
 
----Call this function when player list was changed
+---Call this function when player list was changed.
 ---@param added boolean
 ---@param removed boolean
 function SF:NotifyChanged(added, removed)
@@ -44,6 +50,8 @@ function SF:NotifyChanged(added, removed)
 end
 
 ---Add new callback to be called on player list change.
+---
+---The callback will not be called on player disconnection.
 ---@param cb fun(added: boolean, removed: boolean)
 function SF:AddChangedCallback(cb)
     local cbs = self._callbacks
@@ -59,28 +67,10 @@ function SF:RemoveChangedCallback(cb)
     table.RemoveFastByValue(self._callbacks, cb)
 end
 
----Returns players passing the filter.
----@return Player[]
-function SF:GetArray()
-    assert(false, "Unimplemented")
-end
-
----Returns recipient filter matching this.
----@return CRecipientFilter
-function SF:GetRecipientFilter()
-    assert(false, "Unimplemented")
-end
-
----Returns best representation of the filter.
----@return Player[]|CRecipientFilter
-function SF:GetBestRepr()
-    assert(false, "Unimplemented")
-end
-
 ---Returns true if no player currently match the filter.
 ---@return boolean
 function SF:IsEmpty()
-    assert(false, "Unimplemented")
+    return self.RecipFilter:GetCount() == 0
 end
 
 ---**Hook.** Called when `ply` is connected if `.NotifyPlayerConnected == true`
@@ -90,12 +80,14 @@ function SF:OnPlayerConnected(ply)
     -- Override me in child class
 end
 
+--[[
 ---**Hook.** Called when `ply` is disconnected if `.NotifyPlayerDisconnected == true`
 ---@protected
 ---@param ply Player
 function SF:OnPlayerDisconnected(ply)
     -- Override me in child class
 end
+]]
 
 
 hook.Add("PlayerInitialSpawn", "CR.Net.NotifiedSendFilter", function(ply)
@@ -108,6 +100,7 @@ hook.Add("PlayerInitialSpawn", "CR.Net.NotifiedSendFilter", function(ply)
     end
 end)
 
+--[[
 hook.Add("PlayerDisconnected", "CR.Net.NotifiedSendFilter", function(ply)
     if ply:IsBot() then return end
 
@@ -117,142 +110,158 @@ hook.Add("PlayerDisconnected", "CR.Net.NotifiedSendFilter", function(ply)
         end
     end
 end)
+]]
 
 -------------------------------------------------------------------------------
 
---- @class CR.Net.SendFilterArray: CR.Net.SendFilter
---- @field protected _players Player[]
-local SFA = Class.Define("CR.Net.SendFilterArray", SF)
-CR.Net.SendFilterArray = SFA
-
-SFA.NotifyPlayerDisconnected = true
-
-function SFA:OnInit()
-    SF.OnInit(self)
-
-    self._players = {}
-end
-
-function SFA:GetArray() return self._players end
-
-function SFA:GetBestRepr() return self._players end
-
-function SFA:IsEmpty() return table.IsEmpty(self._players) end
-
-function SFA:GetRecipientFilter()
-    local recip = RecipientFilter()
-    recip:AddPlayers(self._players)
-    return recip
-end
-
-function SFA:OnPlayerDisconnected(ply)
-    self:RemovePlayer(ply)
-end
-
----Add a player to the filter, if he is not already there.
----@protected
----@param ply Player
----@param notify boolean|nil If false, filter changed callbacks won't be called.
----@return boolean added Player was added.
-function SFA:AddPlayer(ply, notify)
-    assert(IsValid(ply))
-
-    local plys = self._players
- 
-    if table.SeqHasValue(plys, ply) then
-        return false
-    end
-
-    table.insert(plys, ply)
-
-    if notify ~= false then
-        self:NotifyChanged(true, false)
-    end
-
-    return true
-end
-
----Remove a player from the filter, if he is there.
----@protected
----@param ply Player
----@param notify boolean|nil If false, filter changed callbacks won't be called.
----@return boolean removed Player was removed.
-function SFA:RemovePlayer(ply, notify)
-    if table.RemoveFastByValue(self._players, ply) == nil then
-        return false
-    end
-
-    if notify ~= false then
-        self:NotifyChanged(false, true)
-    end
-
-    return true
-end
-
--------------------------------------------------------------------------------
-
---- @class CR.Net.SendFilterRecipFilter: CR.Net.SendFilter
---- @field private _recipfilt CRecipientFilter
+--- A sendfilter with its inner recipientfilter being reset each update.
+--- @class CR.Net.ResettingSendFilter: CR.Net.SendFilter
 --- @field private _recipfilt_tmp1 CRecipientFilter
 --- @field private _recipfilt_tmp2 CRecipientFilter
-local SFRF = CR.Class.Define("CR.Net.SendFilterRecipFilter", SF)
-SFRF.NotifyPlayerDisconnected = true
+--- @field private _autoupdate boolean
+local RSF = CR.Class.Define("CR.Net.ResettingSendFilter", SF)
+CR.Net.ResettingSendFilter = RSF
 
-function SFRF:OnInit()
+function RSF:OnInit()
     SF.OnInit(self)
 
-    self._recipfilt = RecipientFilter()
     self._recipfilt_tmp1 = RecipientFilter() -- Cache two temp filters for added/removed players calculation.
     self._recipfilt_tmp2 = RecipientFilter()
+    self._autoupdate = false
 end
 
-function SFRF:GetRecipientFilter() return self._recipfilt end
-function SFRF:GetBestRepr() return self._recipfilt end
-function SFRF:IsEmpty() return self._recipfilt:GetCount() == 0 end
+function RSF:OnDelete()
+    self:DisableAutoupdate()
 
-function SFRF:GetArray() return self._recipfilt:GetPlayers() end
+    SF.OnDelete(self)
+end
 
-
-
----Call this to 
+---Call this to re-compute the filter.
 ---@return boolean added
 ---@return boolean removed
----@return CRecipientFilter filt_added CRecipientFilter containing all newly-added players.
----@return CRecipientFilter filt_removed CRecipientFilter containing all newly-removed players.
-function SFRF:TryUpdate()
-    local filt = self._recipfilt
+function RSF:TryUpdate()
+    local filt = self.RecipFilter
 
     local filt_old = self._recipfilt_tmp1
     filt_old:AddPlayers(filt)
-
+    local old_cnt = filt_old:GetCount()
 
     filt:RemoveAllPlayers()
     self:DoFilter(filt)
+    local new_cnt = filt_old:GetCount()
 
-    local filt_added = self._recipfilt_tmp2 -- not (new - old):IsEmpty()
-    filt_added:AddPlayers(filt)
-    filt_added:RemovePlayers(filt_old) 
-    local added = filt_added:GetCount() ~= 0
+    local added = new_cnt > old_cnt
+    if not added then
+        local filt_added = self._recipfilt_tmp2 -- not (new - old):IsEmpty()
+        filt_added:AddPlayers(filt)
+        filt_added:RemovePlayers(filt_old) 
+        added = filt_added:GetCount() ~= 0
+    end
 
-    local filt_removed = filt_old
-    filt_removed:RemovePlayers(filt) -- not (old - new):IsEmpty()
-    local removed = filt_removed:GetCount() ~= 0
+    local removed = new_cnt < old_cnt
+    if not removed then
+        local filt_removed = filt_old
+        filt_removed:RemovePlayers(filt) -- not (old - new):IsEmpty()
+        removed = filt_removed:GetCount() ~= 0
+    end
 
     self:NotifyChanged(added, removed)
 
-    return added, removed, filt_added, filt_removed
-end
-
-function SFRF:OnPlayerDisconnected(ply)
-    if table.SeqHasValue(self._recipfilt:GetPlayers(), ply) then
-        self:NotifyChanged(false, true)
-    end
+    return added, removed
 end
 
 ---**Hook.** Add whatever you want to `filt`.
 ---@protected
 ---@param filt CRecipientFilter
-function SFRF:DoFilter(filt)
+function RSF:DoFilter(filt)
     assert(false, "Override me!")
 end
 
+---@type CR.Net.ResettingSendFilter[]
+local autoupdate = CR.GetPersistedTable("CR.ResettingSendFilter.AutoUpdate")
+
+---Make the filter update automatically each server think
+function RSF:EnableAutoupdate()
+    if self._autoupdate then return end
+
+    table.insert(autoupdate, self)
+    self._autoupdate = true
+end
+
+--- Stop the filter from updating automatically each server think
+function RSF:DisableAutoupdate()
+    if not self._autoupdate then return end
+
+    table.RemoveFastByValue(autoupdate, self)
+    self._autoupdate = false
+end
+
+hook.Add("Think", "CR.ResettingSendFilter.AutoUpdater", function()
+    for _, sf in ipairs(autoupdate) do
+        sf:TryUpdate()
+    end
+end)
+
+-------------------------------------------------------------------------------
+
+--- @class CR.Net.CompositeSendFilter: CR.Net.SendFilter
+--- @field protected _dependencies CR.Net.SendFilter[]
+local CSF = CR.Class.Define("CR.Net.CompositeSendFilter", SF)
+CR.Net.CompositeSendFilter = CSF
+
+function CSF:OnInit()
+    SF.OnInit(self)
+
+    self._dependencies = {}
+    self._changedCallback = function(added, removed) self:DependencyChanged(added, removed) end
+end
+
+---Adds a dependency to the composite sendfilter. 
+---@param dep CR.Net.SendFilter
+function CSF:AddDependency(dep)
+    if table.SeqHasValue(self._dependencies, dep) then return end
+
+    table.insert(self._dependencies, dep)
+    dep:AddChangedCallback(self._changedCallback)
+
+    if not dep:IsEmpty() then
+        self:DependencyChanged(true, false)
+    end
+end
+
+---Removes a dependency from the composite sendfilter. 
+---@param dep CR.Net.SendFilter
+function CSF:RemoveDependency(dep)
+    if not table.SeqHasValue(self._dependencies, dep) then return end
+
+    table.RemoveFastByValue(self._dependencies, dep)
+    dep:RemoveChangedCallback(self._changedCallback)
+
+    if not dep:IsEmpty() then
+        self:DependencyChanged(false, true)
+    end
+end
+
+function CSF:OnDelete()
+    for _, dep in ipairs(self._dependencies) do
+        dep:RemoveChangedCallback(self._changedCallback)
+    end
+    self._dependencies = nil
+
+    SF.OnDelete(self)
+end
+
+
+---@private
+---@param added boolean
+---@param removed boolean
+function CSF:DependencyChanged(added, removed)
+    self:Recompute()
+    self:NotifyChanged(added, removed)
+end
+
+---**Hook.** Recompute composite recipientfilter here.
+---@protected
+function CSF:Recompute()
+    assert(false, "Unimplemented")
+end
