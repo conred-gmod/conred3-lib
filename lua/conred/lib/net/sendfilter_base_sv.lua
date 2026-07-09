@@ -36,6 +36,8 @@ end
 ---@param added boolean
 ---@param removed boolean
 function SF:NotifyChanged(added, removed)
+    if not added or removed then return end
+
     for _, cb in ipairs(self._callbacks) do
         cb(added, removed)
     end
@@ -186,3 +188,71 @@ function SFA:RemovePlayer(ply, notify)
 
     return true
 end
+
+-------------------------------------------------------------------------------
+
+--- @class CR.Net.SendFilterRecipFilter: CR.Net.SendFilter
+--- @field private _recipfilt CRecipientFilter
+--- @field private _recipfilt_tmp1 CRecipientFilter
+--- @field private _recipfilt_tmp2 CRecipientFilter
+local SFRF = CR.Class.Define("CR.Net.SendFilterRecipFilter", SF)
+SFRF.NotifyPlayerDisconnected = true
+
+function SFRF:OnInit()
+    SF.OnInit(self)
+
+    self._recipfilt = RecipientFilter()
+    self._recipfilt_tmp1 = RecipientFilter() -- Cache two temp filters for added/removed players calculation.
+    self._recipfilt_tmp2 = RecipientFilter()
+end
+
+function SFRF:GetRecipientFilter() return self._recipfilt end
+function SFRF:GetBestRepr() return self._recipfilt end
+function SFRF:IsEmpty() return self._recipfilt:GetCount() == 0 end
+
+function SFRF:GetArray() return self._recipfilt:GetPlayers() end
+
+
+
+---Call this to 
+---@return boolean added
+---@return boolean removed
+---@return CRecipientFilter filt_added CRecipientFilter containing all newly-added players.
+---@return CRecipientFilter filt_removed CRecipientFilter containing all newly-removed players.
+function SFRF:TryUpdate()
+    local filt = self._recipfilt
+
+    local filt_old = self._recipfilt_tmp1
+    filt_old:AddPlayers(filt)
+
+
+    filt:RemoveAllPlayers()
+    self:DoFilter(filt)
+
+    local filt_added = self._recipfilt_tmp2 -- not (new - old):IsEmpty()
+    filt_added:AddPlayers(filt)
+    filt_added:RemovePlayers(filt_old) 
+    local added = filt_added:GetCount() ~= 0
+
+    local filt_removed = filt_old
+    filt_removed:RemovePlayers(filt) -- not (old - new):IsEmpty()
+    local removed = filt_removed:GetCount() ~= 0
+
+    self:NotifyChanged(added, removed)
+
+    return added, removed, filt_added, filt_removed
+end
+
+function SFRF:OnPlayerDisconnected(ply)
+    if table.SeqHasValue(self._recipfilt:GetPlayers(), ply) then
+        self:NotifyChanged(false, true)
+    end
+end
+
+---**Hook.** Add whatever you want to `filt`.
+---@protected
+---@param filt CRecipientFilter
+function SFRF:DoFilter(filt)
+    assert(false, "Override me!")
+end
+
