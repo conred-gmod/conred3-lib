@@ -8,6 +8,7 @@ local Class = CR.Class
 --- @field ClToSv boolean
 --- @field Slot CR.Net.Slot
 --- @field Id integer
+--- @field private _sf_callback (fun(added: boolean, removed: boolean))?
 local Domain = Class.Define("CR.Net.Domain")
 CR.Net.Domain = Domain
 
@@ -25,6 +26,17 @@ function Domain:OnInit(params)
 
     if not (self.SvToCl or self.ClToSv) then
         CR.Error(self," is configured as dud (neither SV->CL nor CL->SV)")
+    end
+
+    if SERVER and self.SvToCl then
+        self._sf_callback = function(added, removed) self:Net_OnRecvListChanged(added, removed) end
+        self._sendFilter:AddChangedCallback(self._sf_callback)
+    end
+end
+
+function Domain:OnDelete()
+    if SERVER and self.SvToCl then
+        self._sendFilter:RemoveChangedCallback(self._sf_callback)
     end
 end
 

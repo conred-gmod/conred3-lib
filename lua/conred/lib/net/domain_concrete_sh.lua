@@ -32,6 +32,7 @@ function DE:Net_OnRecvData(len, ply)
     self:_onRecv(len, ply)
 end
 
+-------------------------------------------------------------------------------
 
 --- @class CR.Net.DomainVar: CR.Net.Domain
 --- @field AutoActivate boolean
@@ -125,8 +126,10 @@ function DV:Net_OnRecvData(len, ply)
 end
 
 if SERVER then
-    function DV:Net_OnRecvListChanged()
-        self:Send(false)
+    function DV:Net_OnRecvListChanged(added)
+        if added then
+            self:Send(false)
+        end
     end
 end
 
