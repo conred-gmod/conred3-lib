@@ -1,92 +1,51 @@
 local Class = CR.Class
-local SF = CR.Net.SendFilter
+local SFA = CR.Net.SendFilterArray
 
---- @class CR.Net.NotifiedSendFilter: CR.Net.SendFilter
---- @field _players Player[]
---- @field _filter fun(Player): boolean
-local NOTIFF = Class.Define("CR.Net.NotifiedSendFilter", SF)
-CR.Net.NotifiedSendFilter = NOTIFF
+--- A send filter that contains players matching some predicate.
+--- @class CR.Net.PredicateSendFilter: CR.Net.SendFilterArray
+--- @field _pred fun(Player): boolean
+local PSF = Class.Define("CR.Net.PredicateSendFilter", SFA)
+CR.Net.PredicateSendFilter = PSF
 
---- @type CR.Net.NotifiedSendFilter[]
-local filters = CR.GetPersistedTable("CR.Net.NotifiedSendFilter.List")
+PSF.NotifyPlayerConnected = true
 
-function NOTIFF:OnInit(filter)
-    SF.OnInit(self)
+function PSF:OnInit(predicate)
+    SFA.OnInit(self)
 
-    self._players = {}
-    self._filter = filter
-
-    table.insert(filters, self)
+    self._pred = predicate
 end
 
-function NOTIFF:GetArray()
-    return self._players
+function PSF:OnDelete()
+    self._pred = nil -- For GC
+
+    SFA.OnDelete(self)
 end
 
-function NOTIFF:OnDelete()
-    table.RemoveFastByValue(filters, self)
-
-    self._filter = nil
-
-    SF.OnDelete(self)
-end
-
---- @param ply Player
-function NOTIFF:_Add(ply)
-    if table.SeqHasValue(self._players, ply) then
-        return false
-    end
-
-    if not self._filter(ply) then
-        return false
-    end
-
-    table.insert(self._players, ply)
-    self:NotifyChanged()
-
-    return true
-end
-
---- @param ply Player
-function NOTIFF:_Remove(ply)
-    local old_idx = table.RemoveFastByValue(self._players, ply)
-
-    if old_idx == nil then
-        return false
-    end
-
-    self:NotifyChanged()
-    return true
-end
-
----Call this when callback value for player `ply` is changed.
+---Call this when predicate value for player `ply` is changed.
 ---
 ---(You can call it when value stays the same, but preferrably don't.)
----@param ply any
-function NOTIFF:NotifyFilterValueChanged(ply)
-    local new_val = self._filter(ply)
+---@param ply Player
+---@param notify boolean|nil If false, filter changed callbacks won't be called automatically. Call `:NotifyChanged(added, removed)` manually. 
+---@return boolean added Was the player added to the filter?
+---@return boolean removed Was the player removed from the filter?
+function PSF:NotifyPredicateValChanged(ply, notify)
+    local new_val = self._pred(ply)
 
     if new_val then
-        self:_Add(ply)
+        if self:AddPlayer(ply, notify) then
+            return true, false
+        end
     else
-        self:_Remove(ply)
-    end
-end
-
-hook.Add("PlayerInitialSpawn", "CR.Net.NotifiedSendFilter", function(ply)
-    if ply:IsBot() then return end
-
-    for _, nsf in ipairs(filters) do
-        nsf:_Add(ply)
-    end
-end)
-
-hook.Add("PlayerDisconnected", "CR.Net.NotifiedSendFilter", function(ply)
-    if ply:IsBot() then return end
-
-    for _, nsf in ipairs(filters) do
-        if IsValid(nsf) then
-            nsf:_Remove(ply)
+        if self:RemovePlayer(ply, notify) then
+            return false, true
         end
     end
-end)
+
+    return false, false
+end
+
+function PSF:OnPlayerConnected(ply)
+    if self._pred(ply) then
+        self:AddPlayer(ply)
+    end
+end
