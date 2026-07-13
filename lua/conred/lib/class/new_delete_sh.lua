@@ -19,11 +19,17 @@ CONSTR.IsStatic = false
 --- 
 --- @return CR.Class.Constructable Unintialized object instance
 function CONSTR:Construct()
+    if self.__index == nil and self.__instancemeta == nil then
+        self.__instancemeta = CR.Class.ExtractMetamethods(self)
+        self.__instancemeta.__index = self
+    end
+
     local inst = {
         __isvalid = false
         -- TODO: __index and other metatable hooks
     }
-    setmetatable(inst, self)
+
+    setmetatable(inst, self.__index and self or self.__instancemeta)
 
     return inst
 end

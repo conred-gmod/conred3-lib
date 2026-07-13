@@ -25,6 +25,21 @@ function CLASS:IsValid()
     return self.__isvalid == true
 end
 
+-- Extracts metamethods from `obj`
+--
+---@param obj table
+---@return table
+function CR.Class.ExtractMetamethods(obj)
+    local result = {}
+    for k, v in pairs(obj) do
+        if isstring(k) and string.StartsWith(k,"__") then
+            result[k] = v
+        end
+    end
+
+    return result
+end
+
 -- Creates new class metatable (with hot reload support)
 --
 --- @param name string Typename
